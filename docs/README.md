@@ -29,22 +29,7 @@ document explains **what the component does**, **how it works internally**,
 
 ## Quick orientation
 
-```
-User input
-   │
-   ▼
-src/main.sage ──────────────► lib/tui.sage        (render banner, spinner, tokens)
-   │
-   ▼
-lib/agent.sage  (ReAct loop)
-   │        │
-   │        ├──► lib/ollama.sage ──► Ollama HTTP API ──► Bonsai-8B
-   │        │
-   │        └──► lib/tools.sage ──► bash / files / grep / glob / web
-   │
-   ▼
-lib/skills.sage (injects SKILL.md guidance into the system prompt)
-```
+![Quick Orientation](../assets/orientation.png)
 
 For build and run instructions see the top-level [README](../README.md) or
 [sagemake.md](sagemake.md).
