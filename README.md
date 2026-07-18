@@ -76,7 +76,7 @@ ollama pull hf.co/prism-ml/Bonsai-8B-gguf:Q1_0
 # 4. Launch the harness
 ./sagemake run
 # or directly:
-sage --runtime jit main.sage
+sage --runtime jit src/main.sage
 ```
 
 ---
@@ -96,7 +96,6 @@ sage --runtime jit main.sage
 
 ```
 Bonsai_Harness/
-├── main.sage              # Entry point — event loop and callbacks
 ├── sagemake               # Python build/run CLI
 ├── lib/
 │   ├── agent.sage         # ReAct loop, prompt, tool-call parsing
@@ -104,7 +103,9 @@ Bonsai_Harness/
 │   ├── tools.sage         # Tool registry and implementations
 │   ├── tui.sage           # ANSI terminal UI components
 │   └── http_client.sage   # Low-level TCP HTTP client
-└── src/                   # (reserved for future native extensions)
+└── src/
+    ├── main.sage          # Entry point — event loop and callbacks
+    └── bonsai.c           # Generated C backend (from --compile, for reference)
 ```
 
 ### 📦 Module Map
@@ -139,10 +140,10 @@ The `sagemake` script provides a complete build/run workflow:
 
 ```bash
 ./sagemake build      # Syntax check + lint
-./sagemake compile    # AOT+JIT native binary (falls back to run script)
+./sagemake compile    # JIT-packaged binary (sage --jit src/main.sage -o bonsai-harness)
 ./sagemake run        # Launch with JIT profiling
 ./sagemake test       # Run self-tests
-./sagemake install    # Copy to /usr/local/bin
+./sagemake install    # Copy binary to /usr/local/bin
 ./sagemake clean      # Remove artifacts
 ```
 
@@ -150,26 +151,7 @@ The `sagemake` script provides a complete build/run workflow:
 
 ## 🧠 Architecture
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    User      │────▶│   TUI        │────▶│   Agent      │
-│  (stdin)     │     │  (lib.tui)   │     │  (lib.agent) │
-└──────────────┘     └──────────────┘     └──────┬───────┘
-                                                 │
-                    ┌────────────────────────────┼────────────┐
-                    │                            │            │
-                    ▼                            ▼            ▼
-            ┌──────────────┐            ┌──────────────┐
-            │   Ollama     │            │   Tools      │
-            │ (lib.ollama) │            │ (lib.tools)  │
-            └──────┬───────┘            └──────┬───────┘
-                   │                          │
-                   ▼                          ▼
-           ┌──────────────┐           ┌──────────────┐
-           │  Bonsai-8B   │           │  Linux OS    │
-           │  (Ollama)    │           │  (bash, fs)  │
-           └──────────────┘           └──────────────┘
-```
+![Architecture Diagram](assets/bonsai.png)
 
 The agent follows a **ReAct** (Reasoning + Acting) loop:
 

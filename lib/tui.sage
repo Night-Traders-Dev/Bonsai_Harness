@@ -30,22 +30,12 @@ proc print_user_msg(text):
         print BLUE + "│ " + line + RESET
     print BLUE + "└─" + RESET
 
-var _tok_first = false
-
 proc print_assistant_header():
     print ""
     print GREEN + "┌─ Bonsai" + RESET
-    _tok_first = true
 
 proc print_token(tok):
-    if _tok_first:
-        print GREEN + "│ " + tok + RESET
-        _tok_first = false
-    else:
-        print GREEN + tok + RESET
-
-proc print_assistant_footer():
-    print GREEN + "└─" + RESET
+    print GREEN + "│ " + tok + RESET
 
 proc print_assistant_footer():
     print GREEN + "└─" + RESET

@@ -3,8 +3,36 @@ import lib.tools as tools
 import json
 
 let MAX_ITERATIONS = 6
+let MAX_HISTORY_CHARS = 8000
 
 let SYSTEM_PROMPT = "You are Bonsai, an AI assistant running in a Linux environment. You have access to tools you can use to help the user.\n\nAvailable tools: bash, read_file, write_file, grep, glob, list_dir, web_fetch\n\nWhen you need information, call the appropriate tool. When you have enough information, provide a complete answer.\n\nRULES:\n- Use tools when you need information\n- Be thorough - check files, run commands, verify facts\n- Provide complete, helpful responses\n- ALWAYS explain your reasoning step by step before calling a tool. Show what you're thinking and why."
+
+proc trim_history(history):
+    if len(history) <= 2:
+        return
+    var used = len(history[0]["content"])
+    let keep = [0]
+    for i in range(len(history) - 1, 1, -1):
+        let cost = len(history[i]["content"])
+        if used + cost <= MAX_HISTORY_CHARS:
+            push(keep, i)
+            used = used + cost
+    if len(keep) <= 1:
+        push(keep, len(history) - 1)
+    let result = [history[0]]
+    for i in range(1, len(history)):
+        var found = false
+        for j in keep:
+            if j == i:
+                found = true
+                break
+        if found:
+            push(result, history[i])
+    for i in range(len(result)):
+        history[i] = result[i]
+    let diff = len(history) - len(result)
+    for i in range(diff):
+        pop(history)
 
 proc init_history():
     let history = []
@@ -48,6 +76,7 @@ proc run_agent(user_input, history, on_token, on_tool_call, on_final):
     let tool_defs = tools.get_tool_list()
 
     for iter in range(MAX_ITERATIONS):
+        trim_history(history)
         var response = {}
 
         if on_token != nil:

@@ -37,6 +37,7 @@ CYAN = "\033[36m"
 ROOT = Path(__file__).resolve().parent
 LIB_DIR = ROOT / "lib"
 BINARY_NAME = "bonsai-harness"
+MAIN_SAGE = "src/main.sage"
 SAGE = shutil.which("sage") or "/usr/local/bin/sage"
 
 
@@ -145,16 +146,16 @@ def cmd_build(args):
 
 
 def cmd_compile(args):
-    banner("compile — Bonsai Agent Harness (native binary)")
+    banner("compile — Bonsai Agent Harness (JIT binary)")
     check_dependencies()
 
     section("Compilation")
 
     out_path = ROOT / BINARY_NAME
 
-    step("AOT+JIT profile-guided compilation")
+    step("building JIT-packaged binary")
     result = subprocess.run(
-        [SAGE, "--aot", "--jit", "main.sage", "-o", str(out_path), "-I", ".", "-I", str(LIB_DIR), "-O2"],
+        [SAGE, "--jit", MAIN_SAGE, "-o", str(out_path)],
         capture_output=True, text=True, timeout=120,
         cwd=ROOT,
     )
@@ -163,7 +164,7 @@ def cmd_compile(args):
         ok()
         step_ok(f"binary at {out_path}")
     else:
-        step_warn("native compilation failed, falling back to JIT runtime")
+        step_warn("JIT packaging failed, falling back to run script")
         for line in result.stderr.split("\n")[:5]:
             if line.strip():
                 print(f"      {YELLOW}{line.strip()}{RESET}")
@@ -172,7 +173,7 @@ def cmd_compile(args):
         run_script = ROOT / BINARY_NAME
         run_script.write_text(
             f"#!/bin/sh\n"
-            f'exec {SAGE} --runtime jit -I "{ROOT}" -I "{LIB_DIR}" "{ROOT / "main.sage"}" "$@"\n'
+            f'exec {SAGE} --runtime jit -I "{ROOT}" -I "{LIB_DIR}" "{ROOT / MAIN_SAGE}" "$@"\n'
         )
         run_script.chmod(0o755)
         step_ok(f"script at {run_script}")
@@ -183,7 +184,7 @@ def cmd_run(args):
     check_dependencies()
 
     section("Launching")
-    cmd = [SAGE, "--runtime", "jit", "main.sage"]
+    cmd = [SAGE, "--runtime", "jit", MAIN_SAGE]
     if args:
         cmd.extend(args)
 
@@ -247,8 +248,8 @@ def cmd_clean(args):
     section("Removing artifacts")
     artifacts = [
         ROOT / BINARY_NAME,
-        ROOT / "bonsai.c",
-        ROOT / "bonsai.ll",
+        ROOT / "src" / "bonsai.c",
+        ROOT / "src" / "bonsai.ll",
         ROOT / "build",
     ]
     for p in artifacts:
