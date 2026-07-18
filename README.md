@@ -79,15 +79,38 @@ sage --runtime jit src/main.sage
 
 ### 📦 Module Map
 
-| Module | Role | Key Procs |
-|--------|------|-----------|
-| `lib.agent` | Agent loop | `run_agent`, `init_history`, `parse_text_tool_call` |
-| `lib.ollama` | Ollama API | `chat`, `chat_simple`, `send_and_stream`, `build_request` |
-| `lib.tools` | Tool system | `register_tool`, `execute_tool`, `get_tool_list` |
-| `lib.tui` | Terminal UI | `print_banner`, `print_user_msg`, `print_token`, `print_tool_call` |
-| `lib.skills` | Skills system | `load_skills`, `parse_frontmatter`, `get_skills_meta`, `get_skills_content` |
-| `lib.benchmark` | Eval suite | `get_categories`, `get_tasks`, `score`, `query_model` |
-| `lib.http_client` | HTTP | `http_post`, `http_post_raw`, `read_line` |
+| Module | Role | Key Procs | Docs |
+|--------|------|-----------|------|
+| `src/main` | Entry point / REPL | `process_input`, `on_token`, `on_tool_call`, `on_final` | [main.md](docs/main.md) |
+| `lib.agent` | Agent loop | `run_agent`, `init_history`, `parse_text_tool_call` | [agent.md](docs/agent.md) |
+| `lib.ollama` | Ollama API | `chat`, `chat_simple`, `ask`, `answer_text`, `build_request` | [ollama.md](docs/ollama.md) |
+| `lib.tools` | Tool system | `register_tool`, `execute_tool`, `get_tool_list` | [tools.md](docs/tools.md) |
+| `lib.tui` | Terminal UI | `print_banner`, `print_user_msg`, `print_token`, `print_tool_call` | [tui.md](docs/tui.md) |
+| `lib.skills` | Skills system | `load_skills`, `parse_frontmatter`, `get_skills_meta`, `get_skills_content` | [skills.md](docs/skills.md) |
+| `lib.benchmark` | Eval suite | `get_categories`, `get_tasks`, `score`, `query_model` | [benchmark.md](docs/benchmark.md) |
+| `lib.http_client` | HTTP | `http_post`, `http_post_raw`, `read_line` | [http_client.md](docs/http_client.md) |
+| `sagemake` | Build system | `cmd_build`, `cmd_run`, `cmd_test`, `cmd_bench` | [sagemake.md](docs/sagemake.md) |
+
+---
+
+## 📚 Documentation
+
+Detailed, per-component documentation lives in [`docs/`](docs/). Start with the
+[documentation index](docs/README.md) or jump straight to a topic:
+
+| Document | Covers |
+|----------|--------|
+| [architecture.md](docs/architecture.md) | System design, the ReAct loop, data flow, concurrency, generation tuning |
+| [main.md](docs/main.md) | `src/main.sage` — REPL, commands, callback wiring |
+| [agent.md](docs/agent.md) | `lib/agent.sage` — ReAct loop, history, tool-call parsing |
+| [ollama.md](docs/ollama.md) | `lib/ollama.sage` — streaming + one-shot chat, response codec, options |
+| [tools.md](docs/tools.md) | `lib/tools.sage` — registry + the 7 built-in tools |
+| [tui.md](docs/tui.md) | `lib/tui.sage` — ANSI rendering, threaded spinner |
+| [skills.md](docs/skills.md) | `lib/skills.sage` + `skills/` — skills system & authoring |
+| [benchmark.md](docs/benchmark.md) | `lib/benchmark.sage` + runner — eval suite & scorers |
+| [http_client.md](docs/http_client.md) | `lib/http_client.sage` — generic HTTP POST client |
+| [sagemake.md](docs/sagemake.md) | `sagemake` — build/run/test/bench/install |
+| [testing.md](docs/testing.md) | `tests/` — the three self-test suites |
 
 ---
 

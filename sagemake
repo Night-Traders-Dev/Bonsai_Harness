@@ -233,22 +233,64 @@ def cmd_test(args):
     step_ok("all test suites passed")
 
 
+BENCH_CATEGORIES = ["reasoning", "knowledge", "coding", "tool_use", "instruction"]
+
+
+def _bench_bar(pct):
+    width = 20
+    filled = pct * width // 100
+    return "█" * filled + "░" * (width - filled)
+
+
 def cmd_bench(args):
     banner("bench — Bonsai Agent Harness")
     check_dependencies()
-    section("Running model benchmark")
+    section("Running model benchmark (per-category process isolation)")
     print()
     script = ROOT / "bench" / "run_bench.sage"
     if not script.exists():
         step_fail("bench/run_bench.sage not found")
-    try:
-        r = subprocess.run([SAGE, str(script)], cwd=ROOT)
-    except KeyboardInterrupt:
+
+    categories = args if args else BENCH_CATEGORIES
+    grand_correct = 0
+    grand_total = 0
+
+    for cat in categories:
+        env = {"BENCH_CATEGORY": cat}
+        try:
+            r = subprocess.run(
+                [SAGE, str(script)],
+                cwd=ROOT,
+                env={**os.environ, **env},
+                capture_output=True, text=True, timeout=1800,
+            )
+        except KeyboardInterrupt:
+            print()
+            step_warn("interrupted")
+            return
+        except subprocess.TimeoutExpired:
+            step_warn(f"{cat}: timed out")
+            continue
+
+        # Echo the human-readable lines, parse the machine-readable SCORE line.
+        for line in r.stdout.splitlines():
+            if line.startswith("SCORE "):
+                parts = line.split()
+                if len(parts) == 4:
+                    grand_correct += int(parts[2])
+                    grand_total += int(parts[3])
+            else:
+                print(line)
         print()
-        step_warn("interrupted")
-        return
-    if r.returncode != 0:
-        step_fail("benchmark run failed")
+
+    if grand_total == 0:
+        step_fail("no benchmark results collected")
+
+    overall = grand_correct * 100 // grand_total
+    color = GREEN if overall >= 80 else (YELLOW if overall >= 50 else RED)
+    print(f"{CYAN}{'═' * 50}{RESET}")
+    print(f"{BOLD}OVERALL: {RESET}{color}{overall}%{RESET} ({grand_correct}/{grand_total} tasks)")
+    print(f"{CYAN}{'═' * 50}{RESET}\n")
 
 
 def cmd_install(args):

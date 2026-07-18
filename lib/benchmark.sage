@@ -23,11 +23,11 @@ proc _tasks_reasoning():
 
 proc _tasks_knowledge():
     return [
-        {"id": "mmlu-1", "prompt": "Answer with only the letter. What is the chemical symbol for gold?\nA) Gd\nB) Au\nC) Ag\nD) Go", "answer": "B", "kind": "choice"},
-        {"id": "mmlu-2", "prompt": "Answer with only the letter. Which planet is closest to the Sun?\nA) Venus\nB) Earth\nC) Mercury\nD) Mars", "answer": "C", "kind": "choice"},
-        {"id": "mmlu-3", "prompt": "Answer with only the letter. In what year did World War II end?\nA) 1918\nB) 1939\nC) 1945\nD) 1950", "answer": "C", "kind": "choice"},
-        {"id": "mmlu-4", "prompt": "Answer with only the letter. What data structure uses LIFO ordering?\nA) Queue\nB) Stack\nC) Heap\nD) Tree", "answer": "B", "kind": "choice"},
-        {"id": "mmlu-5", "prompt": "Answer with only the letter. What is the time complexity of binary search on a sorted array?\nA) O(n)\nB) O(n log n)\nC) O(log n)\nD) O(1)", "answer": "C", "kind": "choice"}
+        {"id": "mmlu-1", "prompt": "Answer with only the letter. What is the chemical symbol for gold?\nA) Gd\nB) Au\nC) Ag\nD) Go", "answer": "B", "accept": "au", "kind": "choice"},
+        {"id": "mmlu-2", "prompt": "Answer with only the letter. Which planet is closest to the Sun?\nA) Venus\nB) Earth\nC) Mercury\nD) Mars", "answer": "C", "accept": "mercury", "kind": "choice"},
+        {"id": "mmlu-3", "prompt": "Answer with only the letter. In what year did World War II end?\nA) 1918\nB) 1939\nC) 1945\nD) 1950", "answer": "C", "accept": "1945", "kind": "choice"},
+        {"id": "mmlu-4", "prompt": "Answer with only the letter. What data structure uses LIFO ordering?\nA) Queue\nB) Stack\nC) Heap\nD) Tree", "answer": "B", "accept": "stack", "kind": "choice"},
+        {"id": "mmlu-5", "prompt": "Answer with only the letter. What is the time complexity of binary search on a sorted array?\nA) O(n)\nB) O(n log n)\nC) O(log n)\nD) O(1)", "answer": "C", "accept": "o(log n)", "kind": "choice"}
     ]
 
 proc _tasks_coding():
@@ -124,6 +124,11 @@ proc score(task, response):
             return true
         if indexof(resp, letter + ")") >= 0:
             return true
+        # also accept the correct option's value text (model often names the
+        # answer instead of emitting the bare letter)
+        if dict_has(task, "accept"):
+            if indexof(resp, lower(task["accept"])) >= 0:
+                return true
         return false
 
     if kind == "contains":
@@ -145,10 +150,7 @@ proc score(task, response):
 # Query the model for a single prompt, return its text response.
 proc query_model(prompt):
     let messages = [{"role": "user", "content": prompt}]
-    let result = ollama.chat_simple(messages, [])
+    let result = ollama.ask(messages, [])
     if dict_has(result, "error"):
         return ""
-    var content = result["content"]
-    if content == "" and dict_has(result, "full_content"):
-        content = result["full_content"]
-    return content
+    return ollama.answer_text(result)

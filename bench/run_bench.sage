@@ -22,18 +22,7 @@ proc bar(pct):
         i = i + 1
     return s
 
-print ""
-print CYAN + "╭──────────────────────────────────────────────╮" + RESET
-print CYAN + "│ " + RESET + BOLD + "Bonsai Harness Benchmark Suite" + RESET + "                 " + CYAN + "│" + RESET
-print CYAN + "│ " + RESET + DIM + "coding · reasoning · knowledge · tools · IF" + RESET + "    " + CYAN + "│" + RESET
-print CYAN + "╰──────────────────────────────────────────────╯" + RESET
-print ""
-
-let categories = bench.get_categories()
-var grand_total = 0
-var grand_correct = 0
-
-for cat in categories:
+proc run_category(cat):
     let tasks = bench.get_tasks(cat)
     var correct = 0
     let total = len(tasks)
@@ -43,13 +32,13 @@ for cat in categories:
         let response = bench.query_model(task["prompt"])
         let ok = bench.score(task, response)
         if ok:
-            print GREEN + "✓ pass" + RESET
+            print GREEN + "pass" + RESET
             correct = correct + 1
         else:
-            let preview = strip(response)
+            var preview = strip(response)
             if len(preview) > 40:
                 preview = slice(preview, 0, 40) + "..."
-            print RED + "✗ fail" + RESET + DIM + " (got: " + preview + ")" + RESET
+            print RED + "fail" + RESET + DIM + " (got: " + preview + ")" + RESET
     let pct = correct * 100 / total
     var color = RED
     if pct >= 80:
@@ -57,17 +46,19 @@ for cat in categories:
     elif pct >= 50:
         color = YELLOW
     print "  " + color + bar(pct) + RESET + " " + color + str(pct) + "%" + RESET + DIM + " (" + str(correct) + "/" + str(total) + ")" + RESET
-    print ""
-    grand_total = grand_total + total
-    grand_correct = grand_correct + correct
+    # machine-readable line for the aggregator
+    print "SCORE " + cat + " " + str(correct) + " " + str(total)
 
-let overall = grand_correct * 100 / grand_total
-print CYAN + "══════════════════════════════════════════════════" + RESET
-var oc = RED
-if overall >= 80:
-    oc = GREEN
-elif overall >= 50:
-    oc = YELLOW
-print BOLD + "OVERALL: " + RESET + oc + str(overall) + "%" + RESET + DIM + " (" + str(grand_correct) + "/" + str(grand_total) + " tasks)" + RESET
-print CYAN + "══════════════════════════════════════════════════" + RESET
-print ""
+# If BENCH_CATEGORY is set, run only that category (used by `sagemake bench`
+# to isolate each category in its own process so memory is freed between them).
+# Otherwise run the whole suite in one process.
+let only = sys.getenv("BENCH_CATEGORY")
+if only != nil and only != "":
+    run_category(only)
+else:
+    print ""
+    print CYAN + "Bonsai Harness Benchmark Suite" + RESET
+    print ""
+    for cat in bench.get_categories():
+        run_category(cat)
+        print ""

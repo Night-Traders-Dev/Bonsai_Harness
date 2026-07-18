@@ -6,6 +6,19 @@ let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-8B-gguf:Q1_0"
 let OLLAMA_HOST = "localhost"
 let OLLAMA_PORT = 11434
 
+# Generation options. Kept as one JSON fragment so both the streaming and
+# non-streaming paths stay identical.
+#  - num_ctx 8192: full context window
+#  - temperature 0.1 + top_k/top_p/min_p: near-greedy but avoids degenerate
+#    single-token loops that a 1-bit quant is prone to
+#  - repeat_penalty 1.15: discourage repetition without distorting short answers
+#  - num_predict 2048: enough room to finish reasoning AND emit the final answer
+#    (too small a cap truncates mid-thinking and yields empty content)
+let GEN_OPTIONS = "\"num_ctx\":8192,\"temperature\":0.1,\"top_k\":40,\"top_p\":0.9,\"min_p\":0.05,\"repeat_penalty\":1.15,\"num_predict\":2048"
+
+# Keep the model resident in memory between requests to avoid reload latency.
+let KEEP_ALIVE = "\"keep_alive\":\"10m\""
+
 proc json_escape(s):
     let r = replace(s, "\\", "\\\\")
     r = replace(r, "\"", "\\\"")
@@ -40,7 +53,8 @@ proc build_request(messages, tools, stream):
     body = body + ",\"messages\":" + build_messages_json(messages)
     body = body + build_tools_json(tools)
     body = body + ",\"stream\":" + str(stream)
-    body = body + ",\"options\":{\"num_ctx\":8192,\"temperature\":0.1}"
+    body = body + ",\"options\":{" + GEN_OPTIONS + "}"
+    body = body + "," + KEEP_ALIVE
     body = body + "}"
     return body
 
@@ -66,6 +80,8 @@ proc parse_response_body(body_str):
         json.cJSON_Delete(obj)
         return result
 
+    result["thinking"] = ""
+
     let content_node = json.cJSON_GetObjectItem(msg, "content")
     if content_node != nil:
         result["content"] = json.cJSON_GetStringValue(content_node)
@@ -73,8 +89,6 @@ proc parse_response_body(body_str):
     let thinking_node = json.cJSON_GetObjectItem(msg, "thinking")
     if thinking_node != nil:
         result["thinking"] = json.cJSON_GetStringValue(thinking_node)
-        if result["content"] == "":
-            result["content"] = json.cJSON_GetStringValue(thinking_node)
 
     let tc_node = json.cJSON_GetObjectItem(msg, "tool_calls")
     if tc_node != nil:
@@ -263,3 +277,86 @@ proc chat_simple(messages, tools):
     let result = chat(messages, tools, _chat_simple_token_collector, nil)
     result["full_content"] = _chat_simple_content
     return result
+
+proc send_once(messages, tools):
+    let body_str = build_request(messages, tools, false)
+
+    var req = "POST /api/chat HTTP/1.1\r\n"
+    req = req + "Host: " + OLLAMA_HOST + ":" + str(OLLAMA_PORT) + "\r\n"
+    req = req + "Content-Type: application/json\r\n"
+    req = req + "Content-Length: " + str(len(body_str)) + "\r\n"
+    req = req + "Connection: close\r\n\r\n"
+    req = req + body_str
+
+    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
+    tcp.send(conn, req)
+
+    var status_line = ""
+    var ch = tcp.recv(conn, 1)
+    while ch != "\n":
+        status_line = status_line + ch
+        ch = tcp.recv(conn, 1)
+
+    var content_length = 0
+    var chunked = false
+    while true:
+        var hdr = ""
+        ch = tcp.recv(conn, 1)
+        while ch != "\n":
+            hdr = hdr + ch
+            ch = tcp.recv(conn, 1)
+        hdr = strip(hdr)
+        if hdr == "":
+            break
+        let low = lower(hdr)
+        if startswith(low, "content-length:"):
+            let parts = split(hdr, ":")
+            if len(parts) >= 2:
+                content_length = tonumber(strip(parts[1]))
+        if startswith(low, "transfer-encoding:"):
+            if contains(low, "chunked"):
+                chunked = true
+
+    var body = ""
+    if chunked:
+        while true:
+            var sl = ""
+            ch = tcp.recv(conn, 1)
+            while ch != "\n":
+                sl = sl + ch
+                ch = tcp.recv(conn, 1)
+            let hex_str = strip(sl)
+            if hex_str == "":
+                break
+            let chunk_size = tonumber("0x" + hex_str)
+            if chunk_size == 0:
+                break
+            body = body + tcp.recv(conn, chunk_size)
+            tcp.recv(conn, 2)
+    elif content_length > 0:
+        body = tcp.recv(conn, content_length)
+    else:
+        var buf = tcp.recv(conn, 4096)
+        while len(buf) > 0:
+            body = body + buf
+            buf = tcp.recv(conn, 4096)
+
+    tcp.close(conn)
+    return body
+
+proc ask(messages, tools):
+    let body = send_once(messages, tools)
+    return parse_response_body(body)
+
+# Return the model's actual answer text: prefer the post-reasoning content
+# field, falling back to thinking only when content is genuinely empty.
+proc answer_text(result):
+    if dict_has(result, "content"):
+        let c = result["content"]
+        if c != nil and strip(c) != "":
+            return c
+    if dict_has(result, "thinking"):
+        let t = result["thinking"]
+        if t != nil:
+            return t
+    return ""
