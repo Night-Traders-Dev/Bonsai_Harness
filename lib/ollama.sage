@@ -70,6 +70,12 @@ proc parse_response_body(body_str):
     if content_node != nil:
         result["content"] = json.cJSON_GetStringValue(content_node)
 
+    let thinking_node = json.cJSON_GetObjectItem(msg, "thinking")
+    if thinking_node != nil:
+        result["thinking"] = json.cJSON_GetStringValue(thinking_node)
+        if result["content"] == "":
+            result["content"] = json.cJSON_GetStringValue(thinking_node)
+
     let tc_node = json.cJSON_GetObjectItem(msg, "tool_calls")
     if tc_node != nil:
         var i = 0
@@ -166,6 +172,13 @@ proc send_and_stream(messages, tools, on_token, on_done):
                         full_content = full_content + tok
                         if on_token != nil:
                             on_token(tok)
+                let tnode = json.cJSON_GetObjectItem(cmsg, "thinking")
+                if tnode != nil:
+                    let ttok = json.cJSON_GetStringValue(tnode)
+                    if ttok != nil and len(ttok) > 0:
+                        full_content = full_content + ttok
+                        if on_token != nil:
+                            on_token(ttok)
                 let tc_node = json.cJSON_GetObjectItem(cmsg, "tool_calls")
                 if tc_node != nil:
                     var ti = 0
