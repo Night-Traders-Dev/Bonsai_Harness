@@ -9,11 +9,10 @@ let CYAN = "\033[36m"
 let GRAY = "\033[90m"
 
 proc print_raw(text):
-    let escaped = replace(text, "'", "'\\''")
-    sys.exec("echo -n '" + escaped + "'")
+    sys.stdout_write(text)
 
 proc print_nl():
-    sys.exec("echo ''")
+    sys.stdout_write("\n")
 
 proc print_lines(lines_arr):
     let n = len(lines_arr)
