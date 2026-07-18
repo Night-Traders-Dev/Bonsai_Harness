@@ -21,6 +21,7 @@
 
 - **🤖 ReAct Agent Loop** — Plan, act, observe, reason. Up to 6 iterations per query.
 - **🛠️ 7 Built-in Tools** — `bash`, `read_file`, `write_file`, `grep`, `glob`, `list_dir`, `web_fetch`
+- **📚 Skills System** — Inject custom `.md` instructions into the system prompt; reload with `:ingest-skills`
 - **🎨 Streaming TUI** — Colored box-drawing terminal UI with ANSI formatting
 - **⚡ JIT Compilation** — Profile-guided native code via SageLang's JIT runtime
 - **🔌 Ollama Integration** — HTTP streaming JSON API with chunked transfer support
@@ -67,6 +68,7 @@ sage --runtime jit src/main.sage
 | `:clear` | Clear screen |
 | `:help` | Show command help |
 | `:history` | Show conversation history count |
+| `:ingest-skills` | Reload skill files from `skills/` directory |
 
 ---
 
@@ -82,7 +84,22 @@ sage --runtime jit src/main.sage
 | `lib.ollama` | Ollama API | `chat`, `chat_simple`, `send_and_stream`, `build_request` |
 | `lib.tools` | Tool system | `register_tool`, `execute_tool`, `get_tool_list` |
 | `lib.tui` | Terminal UI | `print_banner`, `print_user_msg`, `print_token`, `print_tool_call` |
+| `lib.skills` | Skills system | `load_skills`, `get_skills_content`, `get_skills_count` |
 | `lib.http_client` | HTTP | `http_post`, `http_post_raw`, `read_line` |
+
+---
+
+## 🧠 Skills System
+
+Inject custom instructions and domain knowledge into the agent's system prompt by placing `.md` files in the `skills/` directory.
+
+```
+skills/
+├── example.md        # Becomes "Skill: example" section in the prompt
+└── python-dev.md     # Becomes "Skill: python-dev" section in the prompt
+```
+
+Each file is loaded on startup and appended to the system prompt under a `=== Loaded Skills ===` header. Reload at any time with `:ingest-skills` without restarting the harness.
 
 ---
 

@@ -68,10 +68,11 @@ proc print_tool_result(result):
 proc show_help():
     print ""
     print BOLD + "Commands:" + RESET
-    print "  :quit, :exit  - Exit the harness"
-    print "  :clear        - Clear screen"
-    print "  :help         - Show this help"
-    print "  :history      - Show conversation history count"
+    print "  :quit, :exit     - Exit the harness"
+    print "  :clear           - Clear screen"
+    print "  :help            - Show this help"
+    print "  :history         - Show conversation history count"
+    print "  :ingest-skills   - Reload skill files from skills/ directory"
     print ""
 
 proc get_input():

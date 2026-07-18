@@ -1,9 +1,11 @@
 import lib.agent as agent
 import lib.tools as tools
 import lib.tui as tui
+import lib.skills as skills
 import sys
 
-var history = agent.init_history()
+let skills_dir = "skills"
+var history = agent.init_history_with_skills(skills.load_skills(skills_dir))
 var running = true
 
 proc on_token(tok):
@@ -35,6 +37,14 @@ proc process_input(line):
 
     if trimmed == ":history":
         print "History entries: " + str(len(history))
+        return true
+
+    if trimmed == ":ingest-skills":
+        let count = skills.load_skills(skills_dir)
+        history = agent.init_history_with_skills(skills.get_skills_content())
+        tui.print_assistant_header()
+        tui.print_token("Skills re-loaded: " + str(skills.get_skills_count()) + " skill files ingested")
+        tui.print_assistant_footer()
         return true
 
     if trimmed == "":

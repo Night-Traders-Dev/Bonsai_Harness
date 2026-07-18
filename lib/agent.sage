@@ -42,6 +42,17 @@ proc init_history():
     push(history, sys_msg)
     return history
 
+proc init_history_with_skills(skills_content):
+    let history = []
+    let sys_msg = {}
+    var prompt = SYSTEM_PROMPT
+    if skills_content != nil and len(skills_content) > 0:
+        prompt = prompt + "\n\n=== Loaded Skills ===\n" + skills_content + "\n=== End Skills ==="
+    sys_msg["role"] = "system"
+    sys_msg["content"] = prompt
+    push(history, sys_msg)
+    return history
+
 proc parse_text_tool_call(content):
     let result = {}
     result["has_tool_call"] = false

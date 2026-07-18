@@ -203,25 +203,32 @@ def cmd_run(args):
 
 def cmd_test(args):
     banner("test — Bonsai Agent Harness")
-    section("Running self-test")
+    section("Running self-tests")
 
-    test_script = ROOT / "tests" / "test_tools.sage"
-    if not test_script.exists():
-        step_warn("no tests found in tests/")
-        return
-
-    step(f"executing {test_script}")
-    r = subprocess.run(
-        [SAGE, str(test_script)],
-        capture_output=True, text=True, timeout=60,
-        cwd=ROOT,
-    )
-    if r.returncode != 0:
-        print(r.stdout)
-        print(r.stderr)
-        step_fail("tests failed")
-    ok()
-    step_ok("all tests passed")
+    test_suites = [
+        ROOT / "tests" / "test_tools.sage",
+        ROOT / "tests" / "test_skills.sage",
+    ]
+    errors = 0
+    for script in test_suites:
+        if not script.exists():
+            step_warn(f"skipped: {script.name} (not found)")
+            continue
+        step(f"executing {script.name}")
+        r = subprocess.run(
+            [SAGE, str(script)],
+            capture_output=True, text=True, timeout=60,
+            cwd=ROOT,
+        )
+        if r.returncode != 0:
+            print(r.stdout)
+            print(r.stderr)
+            errors += 1
+        else:
+            print(r.stdout)
+    if errors:
+        step_fail(f"{errors} test suite(s) failed")
+    step_ok("all test suites passed")
 
 
 def cmd_install(args):
