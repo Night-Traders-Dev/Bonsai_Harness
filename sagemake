@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""
+sagemake — Build system for Bonsai Agent Harness
+
+A SageLang-based agent harness that connects to Ollama and provides
+a TUI with tool-calling capabilities using the Bonsai-8B model.
+
+Usage:
+    ./sagemake [command] [flags]
+
+Commands:
+    build      Verify syntax and run lint checks
+    compile    Try to compile a native binary (--aot --jit)
+    run        Run the harness with JIT profiling
+    test       Run self-tests
+    install    Install to /usr/local/bin
+    clean      Remove build artifacts
+    all        Run build then test
+"""
+
+import hashlib
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+
+ROOT = Path(__file__).resolve().parent
+LIB_DIR = ROOT / "lib"
+BINARY_NAME = "bonsai-harness"
+SAGE = shutil.which("sage") or "/usr/local/bin/sage"
+
+
+def banner(title):
+    width = 60
+    line = f"{CYAN}{'═' * width}{RESET}"
+    print(f"\n{line}")
+    print(f"{CYAN}  {BOLD}{title}{RESET}")
+    print(f"{line}\n")
+
+
+def section(title):
+    print(f"  {CYAN}→{RESET} {title}")
+
+
+def step(msg):
+    print(f"    {msg} ... ", end="", flush=True)
+
+
+def ok():
+    print(f"{GREEN}✓ done{RESET}")
+
+
+def fail():
+    print(f"{RED}✗ failed{RESET}")
+    sys.exit(1)
+
+
+def step_ok(detail):
+    print(f"{GREEN}✓ {detail}{RESET}")
+
+
+def step_fail(detail):
+    print(f"{RED}✗ {detail}{RESET}")
+    sys.exit(1)
+
+
+def step_warn(detail):
+    print(f"{YELLOW}! {detail}{RESET}")
+
+
+def run_cmd(cmd, **kwargs):
+    if "env" in kwargs:
+        kwargs["env"] = {**os.environ, **kwargs["env"]}
+    else:
+        kwargs["env"] = os.environ.copy()
+    try:
+        return subprocess.run(cmd, check=True, **kwargs)
+    except subprocess.CalledProcessError as e:
+        step_fail(f"command failed with exit {e.returncode}: {' '.join(cmd)}")
+    except FileNotFoundError:
+        step_fail(f"command not found: {cmd[0]}")
+
+
+def check_dependencies():
+    section("Dependencies")
+    required = ["sage", "ollama"]
+    for dep in required:
+        step(f"checking {dep}")
+        if shutil.which(dep) is None:
+            print(f"{RED}✗ not found{RESET}")
+            step_fail(f"missing: {dep}")
+        else:
+            ok()
+
+    step("checking ollama is running")
+    try:
+        r = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode == 0:
+            ok()
+        else:
+            step_warn("ollama not running (start with: ollama serve)")
+    except Exception:
+        step_warn("could not reach ollama daemon")
+
+
+def cmd_build(args):
+    banner("build — Bonsai Agent Harness")
+    check_dependencies()
+
+    section("Syntax check")
+    sage_files = sorted(ROOT.rglob("*.sage"))
+    errors = 0
+    for f in sage_files:
+        rel = f.relative_to(ROOT)
+        step(f"checking {rel}")
+        r = subprocess.run(
+            [SAGE, "lint", str(f)],
+            capture_output=True, text=True, timeout=30,
+        )
+        stderr_lower = r.stderr.lower()
+        if "syntax error" in stderr_lower or "error" in stderr_lower:
+            print(f"{RED}✗ failed{RESET}")
+            print(r.stderr)
+            errors += 1
+        else:
+            ok()
+
+    if errors:
+        step_fail(f"{errors} file(s) failed syntax check")
+
+    step_ok("all files pass syntax check")
+
+
+def cmd_compile(args):
+    banner("compile — Bonsai Agent Harness (native binary)")
+    check_dependencies()
+
+    section("Compilation")
+
+    out_path = ROOT / BINARY_NAME
+
+    step("AOT+JIT profile-guided compilation")
+    result = subprocess.run(
+        [SAGE, "--aot", "--jit", "main.sage", "-o", str(out_path), "-I", ".", "-I", str(LIB_DIR), "-O2"],
+        capture_output=True, text=True, timeout=120,
+        cwd=ROOT,
+    )
+
+    if result.returncode == 0 and out_path.exists():
+        ok()
+        step_ok(f"binary at {out_path}")
+    else:
+        step_warn("native compilation failed, falling back to JIT runtime")
+        for line in result.stderr.split("\n")[:5]:
+            if line.strip():
+                print(f"      {YELLOW}{line.strip()}{RESET}")
+
+        step("creating run script")
+        run_script = ROOT / BINARY_NAME
+        run_script.write_text(
+            f"#!/bin/sh\n"
+            f'exec {SAGE} --runtime jit -I "{ROOT}" -I "{LIB_DIR}" "{ROOT / "main.sage"}" "$@"\n'
+        )
+        run_script.chmod(0o755)
+        step_ok(f"script at {run_script}")
+
+
+def cmd_run(args):
+    banner("run — Bonsai Agent Harness")
+    check_dependencies()
+
+    section("Launching")
+    cmd = [SAGE, "--runtime", "jit", "main.sage"]
+    if args:
+        cmd.extend(args)
+
+    sage_path = os.environ.get("SAGE_PATH", "")
+    sage_path = f"{ROOT}:{LIB_DIR}:{sage_path}" if sage_path else f"{ROOT}:{LIB_DIR}"
+    env = {**os.environ, "SAGE_PATH": sage_path}
+
+    step(f"executing: {' '.join(cmd)}")
+    print()
+    try:
+        subprocess.run(cmd, cwd=ROOT, env=env)
+    except KeyboardInterrupt:
+        print()
+        step_warn("interrupted")
+
+
+def cmd_test(args):
+    banner("test — Bonsai Agent Harness")
+    section("Running self-test")
+
+    test_script = ROOT / "tests" / "test_basic.sage"
+    if not test_script.exists():
+        step_warn("no tests found in tests/")
+        return
+
+    step(f"executing {test_script}")
+    r = subprocess.run(
+        [SAGE, str(test_script)],
+        capture_output=True, text=True, timeout=60,
+        cwd=ROOT,
+    )
+    if r.returncode != 0:
+        print(r.stdout)
+        print(r.stderr)
+        step_fail("tests failed")
+    ok()
+    step_ok("all tests passed")
+
+
+def cmd_install(args):
+    banner("install — Bonsai Agent Harness")
+    install_dir = Path("/usr/local/bin")
+    source = ROOT / BINARY_NAME
+    target = install_dir / BINARY_NAME
+    step(f"installing to {target}")
+    if not source.exists():
+        step_fail(f"{BINARY_NAME} not found — run 'compile' first")
+    try:
+        install_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        target.chmod(0o755)
+    except PermissionError:
+        step_fail("permission denied (try sudo)")
+    except Exception as e:
+        step_fail(f"install failed: {e}")
+    step_ok(f"installed {BINARY_NAME}")
+
+
+def cmd_clean(args):
+    banner("clean — Bonsai Agent Harness")
+    section("Removing artifacts")
+    artifacts = [
+        ROOT / BINARY_NAME,
+        ROOT / "bonsai.c",
+        ROOT / "bonsai.ll",
+        ROOT / "build",
+    ]
+    for p in artifacts:
+        if p.exists():
+            step(f"removing {p.name}")
+            try:
+                if p.is_dir():
+                    shutil.rmtree(p)
+                else:
+                    p.unlink()
+                ok()
+            except Exception as e:
+                step_fail(f"failed: {e}")
+    step_ok("clean complete")
+
+
+def cmd_all(args):
+    cmd_build(args)
+    cmd_test(args)
+
+
+def main():
+    commands = {
+        "build": cmd_build,
+        "compile": cmd_compile,
+        "run": cmd_run,
+        "test": cmd_test,
+        "install": cmd_install,
+        "clean": cmd_clean,
+        "all": cmd_all,
+    }
+
+    if len(sys.argv) < 2 or sys.argv[1] not in commands:
+        banner("Bonsai Agent Harness — sagemake")
+        print(f"  Usage:  ./sagemake {'|'.join(commands.keys())}")
+        print()
+        print(f"  {CYAN}build{RESET}    Check syntax and dependencies")
+        print(f"  {CYAN}compile{RESET}  Try native binary (falls back to run script)")
+        print(f"  {CYAN}run{RESET}      Launch the harness with JIT")
+        print(f"  {CYAN}test{RESET}     Run tests")
+        print(f"  {CYAN}install{RESET}  Install binary")
+        print(f"  {CYAN}clean{RESET}    Remove artifacts")
+        print(f"  {CYAN}all{RESET}      build + test")
+        print()
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+    commands[cmd](args)
+
+
+if __name__ == "__main__":
+    main()

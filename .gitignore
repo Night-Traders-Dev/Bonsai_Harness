@@ -1,0 +1,23 @@
+# Build artifacts
+bonsai-harness
+bonsai.c
+bonsai.ll
+build/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# SageLang
+*.sgvm
+*.svm
+/tmp/
