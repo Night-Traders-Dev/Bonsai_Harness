@@ -205,7 +205,7 @@ def cmd_test(args):
     banner("test — Bonsai Agent Harness")
     section("Running self-test")
 
-    test_script = ROOT / "tests" / "test_basic.sage"
+    test_script = ROOT / "tests" / "test_tools.sage"
     if not test_script.exists():
         step_warn("no tests found in tests/")
         return

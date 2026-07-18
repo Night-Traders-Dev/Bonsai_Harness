@@ -69,14 +69,40 @@ register_tool("write_file", "Write content to a file on the filesystem.", write_
 proc grep_execute(args):
     if type(args) == "dict" and dict_has(args, "pattern"):
         let pattern = args["pattern"]
-        let path = "."
+        let search_path = "."
         if dict_has(args, "path"):
-            path = args["path"]
-        let cmd = "rg -n --max-count=20 '" + replace(pattern, "'", "'\\''") + "' " + path + " 2>/dev/null || grep -rn --max-count=20 '" + replace(pattern, "'", "'\\''") + "' " + path + " 2>/dev/null || echo 'No matches found'"
-        let result = sys.shell_exec(cmd)
-        if result == nil or len(result) == 0:
-            return "No matches found"
-        return result
+            search_path = args["path"]
+        var results = []
+        var collect_files = []
+        proc walk(dir):
+            let entries = io.listdir(dir)
+            for e in entries:
+                let full = dir + "/" + e
+                if io.isdir(full):
+                    if not startswith(e, "."):
+                        walk(full)
+                elif io.exists(full) and not io.isdir(full):
+                    push(collect_files, full)
+        if io.isdir(search_path):
+            walk(search_path)
+        elif io.exists(search_path) and not io.isdir(search_path):
+            push(collect_files, search_path)
+        for f in collect_files:
+            let content = io.readfile(f)
+            let lines = split(content, "\n")
+            for li in range(len(lines)):
+                let line = lines[li]
+                let idx = indexof(line, pattern)
+                if idx >= 0:
+                    let entry = f + ":" + str(li + 1) + ":" + line
+                    push(results, entry)
+                    if len(results) >= 20:
+                        break
+            if len(results) >= 20:
+                break
+        if len(results) > 0:
+            return join(results, "\n")
+        return "No matches found"
     return "Error: 'pattern' argument required"
 
 let grep_params = "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\",\"description\":\"Search pattern (regex)\"},\"path\":{\"type\":\"string\",\"description\":\"Directory or file to search in (default: current directory)\"}},\"required\":[\"pattern\"]}"
@@ -85,11 +111,35 @@ register_tool("grep", "Search for text patterns in files using regex. Returns ma
 proc glob_execute(args):
     if type(args) == "dict" and dict_has(args, "pattern"):
         let pattern = args["pattern"]
-        let cmd = "find . -path './.git' -prune -o -name '" + replace(pattern, "'", "'\\''") + "' -print 2>/dev/null | head -50 || echo 'No matches'"
-        let result = sys.shell_exec(cmd)
-        if result == nil or len(result) == 0:
-            return "No matches found"
-        return result
+        var results = []
+
+        proc match_glob(name, pat):
+            let star = indexof(pat, "*")
+            if star < 0:
+                return name == pat
+            if star == 0:
+                let suffix = slice(pat, 1, len(pat))
+                if suffix == "":
+                    return true
+                return endswith(name, suffix)
+            let prefix = slice(pat, 0, star)
+            return startswith(name, prefix)
+
+        proc walk(dir, pat):
+            let entries = io.listdir(dir)
+            for e in entries:
+                if startswith(e, "."):
+                    continue
+                let full = dir + "/" + e
+                if match_glob(e, pat):
+                    push(results, full)
+                if io.isdir(full):
+                    walk(full, pat)
+
+        walk(".", pattern)
+        if len(results) > 0:
+            return join(results, "\n")
+        return "No matches found"
     return "Error: 'pattern' argument required"
 
 let glob_params = "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\",\"description\":\"Glob pattern to match files (e.g., '*.sage')\"}},\"required\":[\"pattern\"]}"

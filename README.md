@@ -11,29 +11,7 @@
 [![Python](https://img.shields.io/badge/build-sagemake-3B82F6?style=flat-square)](#-quick-start)
 [![GitHub](https://img.shields.io/github/stars/Night-Traders-Dev/Bonsai_Harness?style=flat-square&logo=github)](https://github.com/Night-Traders-Dev/Bonsai_Harness)
 
-<pre style="background:#1a1b26;color:#a9b1d6;padding:16px;border-radius:12px;font-family:'JetBrains Mono',monospace;line-height:1.5">
-┌─ You
-│ What files are in the current directory?
-└─
-
-┌─ Bonsai
-│ I'll check the filesystem to find out.
-
-┌─ Tool: bash
-│ command = ls -la
-└─
-
-┌─ Result
-│ total 48
-│ drwxr-xr-x  5 user user  160 ...
-│ -rw-r--r--  1 user user 2112 main.sage
-│ drwxr-xr-x  2 user user  160 lib/
-└─
-
-┌─ Bonsai
-│ Here are the files in the current directory...
-└─
-</pre>
+![Conversation Demo](assets/conversation.png)
 
 </div>
 
@@ -94,19 +72,7 @@ sage --runtime jit src/main.sage
 
 ## 🏗️ Project Structure
 
-```
-Bonsai_Harness/
-├── sagemake               # Python build/run CLI
-├── lib/
-│   ├── agent.sage         # ReAct loop, prompt, tool-call parsing
-│   ├── ollama.sage        # Ollama HTTP client (chat, stream, JSON)
-│   ├── tools.sage         # Tool registry and implementations
-│   ├── tui.sage           # ANSI terminal UI components
-│   └── http_client.sage   # Low-level TCP HTTP client
-└── src/
-    ├── main.sage          # Entry point — event loop and callbacks
-    └── bonsai.c           # Generated C backend (from --compile, for reference)
-```
+![Project Structure](assets/directory.png)
 
 ### 📦 Module Map
 
