@@ -1,23 +1,22 @@
-import lib.rich as rich
 import sys
 import io
 
-let RESET = "\033[0m"
-let BOLD = "\033[1m"
-let DIM = "\033[2m"
-let RED = "\033[31m"
-let GREEN = "\033[32m"
-let YELLOW = "\033[33m"
-let BLUE = "\033[34m"
-let MAGENTA = "\033[35m"
-let CYAN = "\033[36m"
-let GRAY = "\033[90m"
-let BRIGHT_RED = "\033[91m"
-let BRIGHT_GREEN = "\033[92m"
-let BRIGHT_YELLOW = "\033[93m"
-let BRIGHT_BLUE = "\033[94m"
-let BRIGHT_MAGENTA = "\033[95m"
-let BRIGHT_CYAN = "\033[96m"
+let RESET = "\x1b[0m"
+let BOLD = "\x1b[1m"
+let DIM = "\x1b[2m"
+let RED = "\x1b[31m"
+let GREEN = "\x1b[32m"
+let YELLOW = "\x1b[33m"
+let BLUE = "\x1b[34m"
+let MAGENTA = "\x1b[35m"
+let CYAN = "\x1b[36m"
+let GRAY = "\x1b[90m"
+let BRIGHT_RED = "\x1b[91m"
+let BRIGHT_GREEN = "\x1b[92m"
+let BRIGHT_YELLOW = "\x1b[93m"
+let BRIGHT_BLUE = "\x1b[94m"
+let BRIGHT_MAGENTA = "\x1b[95m"
+let BRIGHT_CYAN = "\x1b[96m"
 
 var _thinking = false
 var _spinner_thread = nil
@@ -30,24 +29,22 @@ proc print_nl():
     sys.stdout_write("\n")
 
 proc clear_screen():
-    print_raw("\033[2J\033[H")
+    print_raw("\x1b[2J\x1b[H")
 
 proc show_header():
-    let box = rich.panel(
-        rich.style("Bonsai Agent Harness", BOLD) + "\n" +
-        rich.style("SageLang + Ollama + Bonsai-8B", DIM),
-        "rounded", CYAN(), "⚡ Bonsai", "left", 1
-    )
-    print_raw(box + "\n\n")
+    print_raw(CYAN + "╭──────────────────────────────────────────╮\n" + RESET)
+    print_raw(CYAN + "│ " + RESET + BOLD + "⚡ Bonsai Agent Harness" + RESET + "                   " + CYAN + "│\n" + RESET)
+    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai-8B" + RESET + "            " + CYAN + "│\n" + RESET)
+    print_raw(CYAN + "╰──────────────────────────────────────────╯\n" + RESET)
 
 proc print_banner():
     clear_screen()
     show_header()
-    print_raw(rich.style("type a message or :help for commands", DIM) + "\n")
+    print_raw(DIM + "type a message or :help for commands\n" + RESET)
 
 proc print_user_msg(text):
     print_nl()
-    print_raw(rich.style("┃ ", BLUE))
+    print_raw(BLUE + "┃ " + RESET)
     print_raw(text)
     print_nl()
     print_nl()
@@ -58,7 +55,7 @@ proc print_assistant_header():
 
 proc print_token(tok):
     if _thinking:
-        print_raw("\r\033[K" + GREEN + "  " + RESET)
+        print_raw("\r\x1b[K" + GREEN + "  " + RESET)
         _thinking = false
     print_raw(GREEN + tok + RESET)
 
@@ -68,7 +65,7 @@ proc print_assistant_footer():
 proc print_tool_call(name, args_json):
     print_nl()
     let color = _tool_color(name)
-    print_raw(rich.style("⚡ " + name, color + BOLD))
+    print_raw(color + BOLD + "⚡ " + name + RESET)
     if type(args_json) == "dict":
         let keys = dict_keys(args_json)
         for k in keys:
@@ -109,17 +106,17 @@ proc print_tool_result(result):
 
 proc show_help():
     print_nl()
-    print_raw(rich.style("Commands:", BOLD))
+    print_raw(BOLD + "Commands:" + RESET)
     print_nl()
-    print_raw("  " + rich.style(":quit", CYAN) + ", " + rich.style(":exit", CYAN) + "     Exit the harness")
+    print_raw("  " + CYAN + ":quit" + RESET + ", " + CYAN + ":exit" + RESET + "     Exit the harness")
     print_nl()
-    print_raw("  " + rich.style(":clear", CYAN) + "           Clear screen")
+    print_raw("  " + CYAN + ":clear" + RESET + "           Clear screen")
     print_nl()
-    print_raw("  " + rich.style(":help", CYAN) + "            Show this help")
+    print_raw("  " + CYAN + ":help" + RESET + "            Show this help")
     print_nl()
-    print_raw("  " + rich.style(":history", CYAN) + "         Show conversation history count")
+    print_raw("  " + CYAN + ":history" + RESET + "         Show conversation history count")
     print_nl()
-    print_raw("  " + rich.style(":ingest-skills", CYAN) + "   Reload skill files from skills/ directory")
+    print_raw("  " + CYAN + ":ingest-skills" + RESET + "   Reload skill files from skills/ directory")
     print_nl()
     print_nl()
 
