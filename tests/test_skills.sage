@@ -137,6 +137,120 @@ run_test("history with skills includes skills in system prompt", test_hist_inclu
 run_test("history with empty skills is same as default", test_hist_empty_skills)
 run_test("history with nil skills is same as default", test_hist_nil_skills)
 
+print "--- frontmatter parsing ---"
+
+proc test_fm_basic():
+    let content = "---\nname: my-skill\ndescription: Does a thing.\n---\n\n# Body\nHello.\n"
+    let p = skills.parse_frontmatter(content)
+    if not expect_eq(p["has_frontmatter"], true):
+        return false
+    if not expect_eq(p["name"], "my-skill"):
+        return false
+    if not expect_eq(p["description"], "Does a thing."):
+        return false
+    if not expect_contains(p["body"], "# Body"):
+        return false
+    if indexof(p["body"], "name: my-skill") >= 0:
+        print "    body should not contain frontmatter"
+        return false
+    return true
+
+proc test_fm_none():
+    let content = "# Just a heading\nNo frontmatter here.\n"
+    let p = skills.parse_frontmatter(content)
+    if not expect_eq(p["has_frontmatter"], false):
+        return false
+    if not expect_eq(p["name"], ""):
+        return false
+    if not expect_eq(p["body"], content):
+        return false
+    return true
+
+proc test_fm_body_stripped_in_prompt():
+    let dir = TEST_DIR + "/fm"
+    if not io.exists(dir):
+        io.mkdir(dir)
+    let p = dir + "/skilled.md"
+    io.writefile(p, "---\nname: skilled\ndescription: A described skill.\n---\n\nUseful body text.\n")
+    let result = skills.load_skills(dir)
+    let ok1 = expect_contains(result, "Skill: skilled")
+    let ok2 = expect_contains(result, "A described skill.")
+    let ok3 = expect_contains(result, "Useful body text.")
+    var ok4 = true
+    if indexof(result, "name: skilled") >= 0:
+        print "    raw frontmatter leaked into prompt"
+        ok4 = false
+    io.remove(p)
+    io.remove(dir)
+    return ok1 and ok2 and ok3 and ok4
+
+run_test("parse_frontmatter extracts name/description/body", test_fm_basic)
+run_test("parse_frontmatter handles no frontmatter", test_fm_none)
+run_test("loaded skill strips raw frontmatter from prompt", test_fm_body_stripped_in_prompt)
+
+print "--- SKILL.md in subdirectories ---"
+
+proc test_subdir_skill():
+    let base = TEST_DIR + "/subdirtest"
+    let sub = base + "/mytool"
+    if not io.exists(base):
+        io.mkdir(base)
+    if not io.exists(sub):
+        io.mkdir(sub)
+    io.writefile(sub + "/SKILL.md", "---\nname: mytool\ndescription: A subdir skill.\n---\n\nSubdir body.\n")
+    let result = skills.load_skills(base)
+    let ok1 = expect_contains(result, "Skill: mytool")
+    let ok2 = expect_contains(result, "Subdir body.")
+    io.remove(sub + "/SKILL.md")
+    io.remove(sub)
+    io.remove(base)
+    return ok1 and ok2
+
+run_test("loads SKILL.md from subdirectories", test_subdir_skill)
+
+print "--- shipped skills validation ---"
+
+let SHIPPED = ["code-review", "debugging", "git-commit", "test-writing", "refactoring", "shell-safety", "web-research", "documentation"]
+
+proc test_shipped_skills_load():
+    if not io.exists("skills") or not io.isdir("skills"):
+        print "    skills/ directory missing"
+        return false
+    skills.load_skills("skills")
+    let meta = skills.get_skills_meta()
+    var names = []
+    for m in meta:
+        push(names, m["name"])
+    for expected in SHIPPED:
+        var found = false
+        for n in names:
+            if n == expected:
+                found = true
+        if not found:
+            print "    missing shipped skill: " + expected
+            return false
+    return true
+
+proc test_shipped_skills_have_descriptions():
+    skills.load_skills("skills")
+    let meta = skills.get_skills_meta()
+    for m in meta:
+        if m["description"] == "":
+            print "    skill missing description: " + m["name"]
+            return false
+        if indexof(lower(m["description"]), "use when") < 0:
+            print "    description lacks trigger guidance: " + m["name"]
+            return false
+    return true
+
+proc test_shipped_skills_count():
+    skills.load_skills("skills")
+    return expect_eq(skills.get_skills_count() >= 8, true)
+
+run_test("all shipped skills load by name", test_shipped_skills_load)
+run_test("shipped skills have trigger descriptions", test_shipped_skills_have_descriptions)
+run_test("at least 8 shipped skills present", test_shipped_skills_count)
+
 print "--- cleanup ---"
 
 teardown()

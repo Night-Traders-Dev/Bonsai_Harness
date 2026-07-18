@@ -13,6 +13,7 @@ Commands:
     compile    Try to compile a native binary (--aot --jit)
     run        Run the harness with JIT profiling
     test       Run self-tests
+    bench      Run the model benchmark suite
     install    Install to /usr/local/bin
     clean      Remove build artifacts
     all        Run build then test
@@ -208,6 +209,7 @@ def cmd_test(args):
     test_suites = [
         ROOT / "tests" / "test_tools.sage",
         ROOT / "tests" / "test_skills.sage",
+        ROOT / "tests" / "test_benchmark.sage",
     ]
     errors = 0
     for script in test_suites:
@@ -229,6 +231,24 @@ def cmd_test(args):
     if errors:
         step_fail(f"{errors} test suite(s) failed")
     step_ok("all test suites passed")
+
+
+def cmd_bench(args):
+    banner("bench — Bonsai Agent Harness")
+    check_dependencies()
+    section("Running model benchmark")
+    print()
+    script = ROOT / "bench" / "run_bench.sage"
+    if not script.exists():
+        step_fail("bench/run_bench.sage not found")
+    try:
+        r = subprocess.run([SAGE, str(script)], cwd=ROOT)
+    except KeyboardInterrupt:
+        print()
+        step_warn("interrupted")
+        return
+    if r.returncode != 0:
+        step_fail("benchmark run failed")
 
 
 def cmd_install(args):
@@ -284,6 +304,7 @@ def main():
         "compile": cmd_compile,
         "run": cmd_run,
         "test": cmd_test,
+        "bench": cmd_bench,
         "install": cmd_install,
         "clean": cmd_clean,
         "all": cmd_all,
@@ -297,6 +318,7 @@ def main():
         print(f"  {CYAN}compile{RESET}  Try native binary (falls back to run script)")
         print(f"  {CYAN}run{RESET}      Launch the harness with JIT")
         print(f"  {CYAN}test{RESET}     Run tests")
+        print(f"  {CYAN}bench{RESET}    Run model benchmark suite")
         print(f"  {CYAN}install{RESET}  Install binary")
         print(f"  {CYAN}clean{RESET}    Remove artifacts")
         print(f"  {CYAN}all{RESET}      build + test")

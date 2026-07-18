@@ -21,8 +21,9 @@
 
 - **🤖 ReAct Agent Loop** — Plan, act, observe, reason. Up to 6 iterations per query.
 - **🛠️ 7 Built-in Tools** — `bash`, `read_file`, `write_file`, `grep`, `glob`, `list_dir`, `web_fetch`
-- **📚 Skills System** — Inject custom `.md` instructions into the system prompt; reload with `:ingest-skills`
-- **🎨 Streaming TUI** — Colored box-drawing terminal UI with ANSI formatting
+- **📚 Skills System** — `SKILL.md` files with YAML frontmatter injected into the system prompt; reload with `:ingest-skills`. Ships with 8 ready-to-use skills.
+- **🎨 Streaming TUI** — Colored box-drawing terminal UI with a non-blocking threaded "thinking" spinner
+- **📊 Benchmark Suite** — Coding, reasoning, knowledge, tool-use, and instruction-following evals with automated scoring
 - **⚡ JIT Compilation** — Profile-guided native code via SageLang's JIT runtime
 - **🔌 Ollama Integration** — HTTP streaming JSON API with chunked transfer support
 - **🧠 Bonsai-8B** — Lightweight 8B-parameter Q1_0 quantized model
@@ -84,22 +85,60 @@ sage --runtime jit src/main.sage
 | `lib.ollama` | Ollama API | `chat`, `chat_simple`, `send_and_stream`, `build_request` |
 | `lib.tools` | Tool system | `register_tool`, `execute_tool`, `get_tool_list` |
 | `lib.tui` | Terminal UI | `print_banner`, `print_user_msg`, `print_token`, `print_tool_call` |
-| `lib.skills` | Skills system | `load_skills`, `get_skills_content`, `get_skills_count` |
+| `lib.skills` | Skills system | `load_skills`, `parse_frontmatter`, `get_skills_meta`, `get_skills_content` |
+| `lib.benchmark` | Eval suite | `get_categories`, `get_tasks`, `score`, `query_model` |
 | `lib.http_client` | HTTP | `http_post`, `http_post_raw`, `read_line` |
 
 ---
 
 ## 🧠 Skills System
 
-Inject custom instructions and domain knowledge into the agent's system prompt by placing `.md` files in the `skills/` directory.
+Skills are Markdown files that teach the agent *how* to perform a task well.
+They are loaded on startup and appended to the system prompt under a
+`=== Loaded Skills ===` header. Reload at any time with `:ingest-skills`
+without restarting the harness.
+
+### Format
+
+Each skill follows the open `SKILL.md` convention: **YAML frontmatter**
+(`name` + `description` with clear triggers) followed by concise,
+atomic instructions. Two layouts are supported:
 
 ```
 skills/
-├── example.md        # Becomes "Skill: example" section in the prompt
-└── python-dev.md     # Becomes "Skill: python-dev" section in the prompt
+├── code-review/
+│   └── SKILL.md      # folder-based skill (recommended)
+└── quick-note.md     # single-file skill
 ```
 
-Each file is loaded on startup and appended to the system prompt under a `=== Loaded Skills ===` header. Reload at any time with `:ingest-skills` without restarting the harness.
+```markdown
+---
+name: code-review
+description: Review code for bugs and security issues. Use when the user asks for a code review.
+---
+
+# Code Review
+1. Read the changed files fully.
+2. Check for correctness, security, error handling, performance, clarity.
+3. Group findings by severity: Critical, Warning, Suggestion.
+```
+
+The loader parses the frontmatter (so raw YAML never leaks into the
+prompt), uses the `description` as trigger guidance for the model, and
+falls back to the filename when no `name` is given.
+
+### Shipped skills
+
+| Skill | Triggers on |
+|-------|-------------|
+| `code-review` | reviewing code for bugs, security, best practices |
+| `debugging` | diagnosing errors, crashes, failing tests |
+| `git-commit` | writing conventional commit messages, committing safely |
+| `test-writing` | adding tests, improving coverage |
+| `refactoring` | cleaning up / restructuring code without changing behavior |
+| `shell-safety` | running shell commands without destructive side effects |
+| `web-research` | gathering accurate up-to-date info from the web |
+| `documentation` | writing READMEs, docstrings, code comments |
 
 ---
 
@@ -117,6 +156,51 @@ Each file is loaded on startup and appended to the system prompt under a `=== Lo
 
 ---
 
+## 📊 Benchmark Suite
+
+A built-in evaluation harness measures the model across five categories,
+each mirroring the style of a widely used LLM benchmark, with
+**automated, deterministic scoring** (no human grader needed):
+
+| Category | Style | What it measures |
+|----------|-------|------------------|
+| `reasoning` | GSM8K | multi-step math word problems (exact numeric answer) |
+| `knowledge` | MMLU | multiple-choice factual questions |
+| `coding` | HumanEval / MBPP | predicting program output & code behavior |
+| `tool_use` | function-calling | choosing the correct tool for a request |
+| `instruction` | IFEval | following precise output constraints |
+
+Run it against your local model:
+
+```bash
+./sagemake bench
+# or directly:
+sage bench/run_bench.sage
+```
+
+Each task is scored by a matcher (`number`, `choice`, `contains`,
+`exact_word`) defined in `lib/benchmark.sage`. The runner prints a
+per-category pass rate and an overall score. Add or edit tasks by
+extending the `_tasks_*` procs in `lib/benchmark.sage`.
+
+---
+
+## 🧪 Tests
+
+```bash
+./sagemake test
+```
+
+Three self-test suites run without touching the network:
+
+| Suite | Coverage |
+|-------|----------|
+| `tests/test_tools.sage` | tool registration, dispatch, argument handling (23 tests) |
+| `tests/test_skills.sage` | skill loading, frontmatter parsing, subdir `SKILL.md`, shipped-skill validation (15 tests) |
+| `tests/test_benchmark.sage` | benchmark structure and every scoring matcher (17 tests) |
+
+---
+
 ## 🔧 Build System
 
 The `sagemake` script provides a complete build/run workflow:
@@ -125,7 +209,8 @@ The `sagemake` script provides a complete build/run workflow:
 ./sagemake build      # Syntax check + lint
 ./sagemake compile    # JIT-packaged binary (sage --jit src/main.sage -o bonsai-harness)
 ./sagemake run        # Launch with JIT profiling
-./sagemake test       # Run self-tests
+./sagemake test       # Run self-tests (tools + skills + benchmark)
+./sagemake bench      # Run the model benchmark suite
 ./sagemake install    # Copy binary to /usr/local/bin
 ./sagemake clean      # Remove artifacts
 ```
