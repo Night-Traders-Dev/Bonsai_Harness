@@ -13,7 +13,7 @@ import lib.ollama as ollama
 #   commonsense_reasoning  -> HellaSwag / WinoGrande / TruthfulQA
 #
 # Each task has automated, deterministic scoring so the whole suite can
-# run without a human grader.  Models tested include Bonsai-8B (1-bit quant)
+# run without a human grader.  Models tested include Bonsai-27B (1-bit quant)
 # and any model served through Ollama.
 
 # ──────────────────────────────────────────────

@@ -3,7 +3,7 @@
 sagemake — Build system for Bonsai Agent Harness
 
 A SageLang-based agent harness that connects to Ollama and provides
-a TUI with tool-calling capabilities using the Bonsai-8B model.
+a TUI with tool-calling capabilities using the Bonsai-27B model.
 
 Usage:
     ./sagemake [command] [flags]

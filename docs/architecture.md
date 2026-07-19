@@ -7,7 +7,7 @@ concurrency, and the key design decisions.
 ## 1. Goals
 
 The harness exists to turn a small, locally-served language model
-(**Bonsai-8B**, a 1-bit `Q1_0` quant) into a useful, tool-using assistant with:
+(**Bonsai-27B**, a 1-bit `Q1_0` quant) into a useful, tool-using assistant with:
 
 - a **ReAct loop** so the model can plan, call tools, observe results, and
   iterate toward an answer;
@@ -121,7 +121,7 @@ runtime without restarting. See [skills.md](skills.md).
 
 ## 9. Generation tuning
 
-Because Bonsai-8B is a 1-bit quant, it is prone to repetition loops and to
+Because Bonsai-27B is a 1-bit quant, it is prone to repetition loops and to
 emitting long "thinking" traces. `lib/ollama.sage` centralizes generation
 options in `GEN_OPTIONS`:
 

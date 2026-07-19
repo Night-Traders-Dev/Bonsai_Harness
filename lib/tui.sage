@@ -89,7 +89,7 @@ proc clear_screen():
 proc show_header():
     print_raw(CYAN + "╭──────────────────────────────────────────╮\n" + RESET)
     print_raw(CYAN + "│ " + RESET + BOLD + "⚡ Bonsai Agent Harness" + RESET + "                   " + CYAN + "│\n" + RESET)
-    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai-8B" + RESET + "            " + CYAN + "│\n" + RESET)
+    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai-27B" + RESET + "            " + CYAN + "│\n" + RESET)
     print_raw(CYAN + "╰──────────────────────────────────────────╯\n" + RESET)
 
 proc print_banner():
