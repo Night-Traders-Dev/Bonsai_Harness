@@ -44,7 +44,7 @@ proc expect_nil(val):
         return false
     return true
 
-let TEST_FILE = "/tmp/bonsai_test_write.txt"
+let TEST_FILE = "test_bonsai_write_temp.txt"
 let TEST_CONTENT = "Hello from Bonsai test suite!"
 
 print ""
@@ -130,7 +130,7 @@ proc test_read_written():
     return expect_eq(r, TEST_CONTENT)
 
 proc test_read_missing():
-    let r = tools.execute_tool("read_file", {"path": "/tmp/nonexistent_bonsai_test_file"})
+    let r = tools.execute_tool("read_file", {"path": "nonexistent_bonsai_test_file"})
     return expect_startswith(r, "Error: File not found:")
 
 proc test_read_no_path():
@@ -144,11 +144,11 @@ run_test("missing path argument returns error", test_read_no_path)
 print "--- grep ---"
 
 proc test_grep_find():
-    let r = tools.execute_tool("grep", {"pattern": "Bonsai", "path": "/tmp/bonsai_test_write.txt"})
+    let r = tools.execute_tool("grep", {"pattern": "Bonsai", "path": TEST_FILE})
     return expect_contains(r, "Bonsai")
 
 proc test_grep_no_match():
-    let r = tools.execute_tool("grep", {"pattern": "XYZZYX_NOMATCH_12345", "path": "/tmp/bonsai_test_write.txt"})
+    let r = tools.execute_tool("grep", {"pattern": "XYZZYX_NOMATCH_12345", "path": TEST_FILE})
     return expect_contains(r, "No matches")
 
 proc test_grep_no_pattern():
@@ -188,7 +188,7 @@ proc test_list_lib():
     return expect_contains(r, "agent.sage")
 
 proc test_list_invalid():
-    let r = tools.execute_tool("list_dir", {"path": "/tmp/nonexistent_bonsai_dir_xyz"})
+    let r = tools.execute_tool("list_dir", {"path": "nonexistent_bonsai_dir_xyz"})
     return expect_startswith(r, "Error: Not a directory:")
 
 run_test("current directory", test_list_cwd)
@@ -197,15 +197,20 @@ run_test("invalid path returns error", test_list_invalid)
 
 print "--- web_fetch ---"
 
-proc test_web_fetch_ollama():
+proc test_web_fetch_ssrf_blocked():
     let r = tools.execute_tool("web_fetch", {"url": "http://localhost:11434"})
-    return expect_contains(r, "Ollama")
+    return expect_contains(r, "cannot fetch from private or loopback")
+
+proc test_web_fetch_https_blocked():
+    let r = tools.execute_tool("web_fetch", {"url": "https://example.com"})
+    return expect_contains(r, "HTTPS is not supported")
 
 proc test_web_fetch_no_url():
     let r = tools.execute_tool("web_fetch", {})
     return expect_eq(r, "Error: 'url' argument required")
 
-run_test("fetch localhost:11434 (Ollama)", test_web_fetch_ollama)
+run_test("SSRF blocks localhost", test_web_fetch_ssrf_blocked)
+run_test("HTTPS rejected (no TLS)", test_web_fetch_https_blocked)
 run_test("missing url returns error", test_web_fetch_no_url)
 
 print "--- unknown tool ---"

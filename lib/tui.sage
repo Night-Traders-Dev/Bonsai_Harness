@@ -2,6 +2,30 @@ import sys
 import io
 import thread
 
+# Strip ANSI escape sequences from untrusted text (tool results, model output)
+# to prevent terminal injection attacks. Only the harness's own styling codes
+# (which are applied outside this function) are safe.
+proc strip_ansi(text):
+    var out = ""
+    var i = 0
+    let n = len(text)
+    while i < n:
+        let c = slice(text, i, i + 1)
+        if c == "\x1b":
+            # consume escape sequence: ESC [ params... final
+            # final byte is in range 0x40-0x7e (ASCII letter)
+            # parameter / intermediate bytes 0x20-0x3f
+            i = i + 1
+            while i < n:
+                let ec = ord(slice(text, i, i + 1))
+                i = i + 1
+                if ec >= 0x40 and ec <= 0x7e:
+                    break  # final byte — escape sequence ends
+        else:
+            out = out + c
+            i = i + 1
+    return out
+
 let RESET = "\x1b[0m"
 let BOLD = "\x1b[1m"
 let DIM = "\x1b[2m"
@@ -89,7 +113,7 @@ proc print_token(tok):
         stop_spinner()
         print_raw("\r\x1b[K" + GREEN + "  " + RESET)
         _thinking = false
-    print_raw(GREEN + tok + RESET)
+    print_raw(GREEN + strip_ansi(tok) + RESET)
 
 proc print_assistant_footer():
     if _thinking:
@@ -104,9 +128,10 @@ proc print_tool_call(name, args_json):
     if type(args_json) == "dict":
         let keys = dict_keys(args_json)
         for k in keys:
-            print_raw(DIM + " " + k + "=" + str(args_json[k]) + RESET)
+            let val_str = str(args_json[k])
+            print_raw(DIM + " " + k + "=" + strip_ansi(val_str) + RESET)
     elif type(args_json) == "string":
-        print_raw(" " + args_json)
+        print_raw(" " + strip_ansi(args_json))
     print_nl()
 
 proc _tool_color(name):
@@ -120,7 +145,8 @@ proc _tool_color(name):
     return YELLOW
 
 proc print_tool_result(result):
-    let lines = split(result, "\n")
+    let clean = strip_ansi(result)
+    let lines = split(clean, "\n")
     let n = len(lines)
     if n > 12:
         for i in range(6):

@@ -26,6 +26,8 @@ document explains **what the component does**, **how it works internally**,
 | [http_client.md](http_client.md) | `lib/http_client.sage` | A general-purpose HTTP POST client (chunked-transfer aware). |
 | [sagemake.md](sagemake.md) | `sagemake` | The Python build system: build, compile, run, test, bench, install, clean. |
 | [testing.md](testing.md) | `tests/` | The three self-test suites and how to add tests. |
+| [security.md](security.md) | All | Security audit report, threat model, mitigations, and remaining risks. |
+| [performance.md](performance.md) | All | Performance audit, benchmark results (32%→96%), and tuning changes. |
 
 ## Quick orientation
 

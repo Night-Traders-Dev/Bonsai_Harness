@@ -111,6 +111,8 @@ Detailed, per-component documentation lives in [`docs/`](docs/). Start with the
 | [http_client.md](docs/http_client.md) | `lib/http_client.sage` — generic HTTP POST client |
 | [sagemake.md](docs/sagemake.md) | `sagemake` — build/run/test/bench/install |
 | [testing.md](docs/testing.md) | `tests/` — the three self-test suites |
+| [security.md](docs/security.md) | Security audit, threat model, mitigations, remaining risks |
+| [performance.md](docs/performance.md) | Performance audit, benchmark results, tuning changes |
 
 ---
 

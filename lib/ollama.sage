@@ -23,8 +23,28 @@ proc json_escape(s):
     let r = replace(s, "\\", "\\\\")
     r = replace(r, "\"", "\\\"")
     r = replace(r, "\n", "\\n")
+    r = replace(r, "\r", "\\r")
     r = replace(r, "\t", "\\t")
-    return r
+    r = replace(r, "\b", "\\b")
+    r = replace(r, "\f", "\\f")
+    var i = 0
+    let n = len(r)
+    var out = ""
+    while i < n:
+        let c = slice(r, i, i + 1)
+        let cv = ord(c)
+        if cv >= 0 and cv < 32 and cv != 10 and cv != 13 and cv != 9 and cv != 8 and cv != 12:
+            out = out + "\\u00"
+            let hi = cv / 16
+            let lo = cv % 16
+            if hi < 10: out = out + chr(48 + hi)
+            else: out = out + chr(87 + hi)
+            if lo < 10: out = out + chr(48 + lo)
+            else: out = out + chr(87 + lo)
+        else:
+            out = out + c
+        i = i + 1
+    return out
 
 proc build_messages_json(messages):
     let parts = []
