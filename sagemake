@@ -233,7 +233,7 @@ def cmd_test(args):
     step_ok("all test suites passed")
 
 
-BENCH_CATEGORIES = ["reasoning", "knowledge", "coding", "tool_use", "instruction"]
+BENCH_CATEGORIES = ["reasoning", "knowledge", "coding", "tool_use", "instruction", "reading_comprehension", "commonsense_reasoning"]
 
 
 def _bench_bar(pct):

@@ -26,14 +26,14 @@ print ""
 
 print "--- structure ---"
 
-proc test_five_categories():
-    return expect_eq(len(bench.get_categories()), 5)
+proc test_seven_categories():
+    return expect_eq(len(bench.get_categories()), 7)
 
 proc test_categories_have_tasks():
     for c in bench.get_categories():
         let tasks = bench.get_tasks(c)
-        if len(tasks) < 3:
-            print "    category too small: " + c
+        if len(tasks) < 10:
+            print "    category too small: " + c + " (" + str(len(tasks)) + " tasks)"
             return false
     return true
 
@@ -53,8 +53,8 @@ proc test_tasks_well_formed():
 proc test_unknown_category_empty():
     return expect_eq(len(bench.get_tasks("nonsense")), 0)
 
-run_test("has exactly 5 categories", test_five_categories)
-run_test("every category has >= 3 tasks", test_categories_have_tasks)
+run_test("has exactly 7 categories", test_seven_categories)
+run_test("every category has >= 10 tasks", test_categories_have_tasks)
 run_test("every task has id/prompt/answer/kind", test_tasks_well_formed)
 run_test("unknown category returns empty", test_unknown_category_empty)
 

@@ -2,7 +2,7 @@ import json
 import tcp
 import strings
 
-let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-8B-gguf:Q1_0"
+let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-27B-gguf:Q1_0"
 let OLLAMA_HOST = "localhost"
 let OLLAMA_PORT = 11434
 

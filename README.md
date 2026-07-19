@@ -19,14 +19,7 @@
 
 ## ✨ Features
 
-- **🤖 ReAct Agent Loop** — Plan, act, observe, reason. Up to 6 iterations per query.
-- **🛠️ 7 Built-in Tools** — `bash`, `read_file`, `write_file`, `grep`, `glob`, `list_dir`, `web_fetch`
-- **📚 Skills System** — `SKILL.md` files with YAML frontmatter injected into the system prompt; reload with `:ingest-skills`. Ships with 8 ready-to-use skills.
-- **🎨 Streaming TUI** — Colored box-drawing terminal UI with a non-blocking threaded "thinking" spinner
-- **📊 Benchmark Suite** — Coding, reasoning, knowledge, tool-use, and instruction-following evals with automated scoring
-- **⚡ JIT Compilation** — Profile-guided native code via SageLang's JIT runtime
-- **🔌 Ollama Integration** — HTTP streaming JSON API with chunked transfer support
-- **🧠 Bonsai-8B** — Lightweight 8B-parameter Q1_0 quantized model
+![Features](assets/features.png)
 
 ---
 
