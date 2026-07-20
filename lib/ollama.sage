@@ -2,9 +2,48 @@ import json
 import tcp
 import strings
 
-let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-27B-gguf:Q1_0"
+let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
 let OLLAMA_HOST = "localhost"
 let OLLAMA_PORT = 11434
+let CONNECTION_POOL = {}
+let CONNECTION_EXPIRY = 60000
+let last_activity = 0
+
+proc get_timestamp():
+    import sys
+    return sys.clock()
+
+proc get_connection():
+    let now = get_timestamp()
+    let time_since_last = now - last_activity
+    
+    if time_since_last > CONNECTION_EXPIRY {
+        let conn = CONNECTION_POOL[OLLAMA_HOST]
+        if conn != nil and conn != "" {
+            tcp.close(conn)
+            CONNECTION_POOL[OLLAMA_HOST] = ""
+        }
+    }
+    
+    if dict_has(CONNECTION_POOL, OLLAMA_HOST) {
+        let conn = CONNECTION_POOL[OLLAMA_HOST]
+        if conn != nil and conn != "" {
+            last_activity = now
+            return conn
+        }
+    }
+    
+    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
+    CONNECTION_POOL[OLLAMA_HOST] = conn
+    last_activity = now
+    return conn
+
+proc release_connection(conn):
+    let existing = CONNECTION_POOL[OLLAMA_HOST]
+    if existing != nil and existing != "" {
+        tcp.close(existing)
+        CONNECTION_POOL[OLLAMA_HOST] = ""
+        last_activity = 0
 
 # Generation options. Kept as one JSON fragment so both the streaming and
 # non-streaming paths stay identical.
@@ -144,11 +183,12 @@ proc send_and_stream(messages, tools, on_token, on_done):
     req = req + "Content-Type: application/json\r\n"
     req = req + "Content-Length: " + str(len(body_str)) + "\r\n"
     req = req + "Accept: application/x-ndjson\r\n"
-    req = req + "Connection: close\r\n\r\n"
+    req = req + "Connection: keep-alive\r\n\r\n"
     req = req + body_str
 
-    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
+    let conn = get_connection()
     tcp.send(conn, req)
+    tcp.sendall(conn, req)
 
     var status_line = ""
     var ch = tcp.recv(conn, 1)

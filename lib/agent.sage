@@ -78,6 +78,53 @@ proc parse_text_tool_call(content):
             result["final_answer"] = strip(slice(trimmed, 6, len(trimmed)))
     return result
 
+let MAX_CONCURRENT_TOOLS = 4
+let EXECUTION_SEMAPHORE = MAX_CONCURRENT_TOOLS
+import sys
+import datetime
+
+proc get_timestamp():
+    if dict_has(datetime, "now_timestamp") {
+        return datetime.now_timestamp()
+    } else {
+        return sys.clock()
+    }
+
+proc execute_concurrent_tools(tool_calls, history, on_tool_call):
+    var tool_results = []
+    let executed_count = 0
+    var available_slots = EXECUTION_SEMAPHORE
+    
+    for tool_call in tool_calls:
+        if available_slots <= 0 {
+            break
+        }
+        
+        let tc_name = tool_call["name"]
+        let tc_args = tool_call["arguments"]
+        available_slots = available_slots - 1
+        
+        let tool_result = tools.execute_tool(tc_name, tc_args)
+        executed_count = executed_count + 1
+        
+        let tool_msg = "TOOL RESULT (" + tc_name + "):\n" + tool_result
+        let tool_entry = {}
+        tool_entry["role"] = "tool"
+        tool_entry["content"] = tool_msg
+        tool_entry["name"] = tc_name
+        
+        push(history, tool_entry)
+        
+        if on_tool_call != nil {
+            on_tool_call("result", tc_name + " (" + str(len(tool_result)) + " chars)")
+        }
+        
+        push(tool_results, {"name": tc_name, "result": tool_result})
+        
+        available_slots = available_slots + 1
+    
+    return history
+
 proc run_agent(user_input, history, on_token, on_tool_call, on_final):
     let user_msg = {}
     user_msg["role"] = "user"

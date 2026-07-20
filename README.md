@@ -2,11 +2,21 @@
 
 # 🤖 Bonsai Agent Harness
 
-**Bonsai-27B + Ollama + SageLang — A ReAct agent with tools, streaming, and TUI**
+**Bonsai-4B + Ollama + SageLang — A ReAct agent with tools, streaming, and TUI**
+
+<!-- PROJECT VERSION BADGES -->
+[![SageLang](https://img.shields.io/badge/SageLang-4.1.0-7C3AED?style=flat-square&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMTYgMTggMjIgMTIgMTYgNiIvPjxwb2x5bGluZSBwb2ludHM9IjggNiAyIDEyIDggMTgiLz48L3N2Zz4=)](https://github.com/Night-Traders-Dev/SageLang)
+[![Ollama](https://img.shields.io/badge/Ollama-0.32.1-EE4C2C?style=flat-square&logo=ollama)](https://ollama.ai)
+[![Bonsai-4B](https://img.shields.io/badge/Bonsai--4B-Q1_0-22C55E?style=flat-square)](https://huggingface.co/prism-ml/Bonsai-4B-gguf)
+[![License](https://img.shields.io/badge/license-MIT-F59E0B?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/build-sagemake-3B82F6?style=flat-square)](#-quick-start)
+[![GitHub](https://img.shields.io/github/stars/Night-Traders-Dev/Bonsai_Harness?style=flat-square&logo=github)](https://github.com/Night-Traders-Dev/Bonsai_Harness)
+
+![Conversation Demo](assets/conversation.png)
 
 [![SageLang](https://img.shields.io/badge/SageLang-4.1.0-7C3AED?style=flat-square&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMTYgMTggMjIgMTIgMTYgNiIvPjxwb2x5bGluZSBwb2ludHM9IjggNiAyIDEyIDggMTgiLz48L3N2Zz4=)](https://github.com/Night-Traders-Dev/SageLang)
 [![Ollama](https://img.shields.io/badge/Ollama-0.32.1-EE4C2C?style=flat-square&logo=ollama)](https://ollama.ai)
-[![Bonsai-27B](https://img.shields.io/badge/Bonsai--8B-Q1_0-22C55E?style=flat-square)](https://huggingface.co/prism-ml/Bonsai-27B-gguf)
+[![Bonsai-4B](https://img.shields.io/badge/Bonsai--4B-Q1_0-22C55E?style=flat-square)](https://huggingface.co/prism-ml/Bonsai-4B-gguf)
 [![License](https://img.shields.io/badge/license-MIT-F59E0B?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/build-sagemake-3B82F6?style=flat-square)](#-quick-start)
 [![GitHub](https://img.shields.io/github/stars/Night-Traders-Dev/Bonsai_Harness?style=flat-square&logo=github)](https://github.com/Night-Traders-Dev/Bonsai_Harness)
@@ -29,7 +39,7 @@
 |-----------|---------|---------|
 | SageLang | ≥ 4.1.0 | `git clone https://github.com/Night-Traders-Dev/SageLang && cd SageLang && sudo ./sagemake --install --skip-tests` |
 | Ollama | ≥ 0.32.1 | `curl -fsSL https://ollama.com/install.sh \| sh` |
-| Bonsai-27B | Q1_0 | `ollama pull hf.co/prism-ml/Bonsai-27B-gguf:Q1_0` |
+| Bonsai-4B | Q1_0 | `ollama pull hf.co/prism-ml/Bonsai-4B-gguf:Q1_0` |
 
 ---
 

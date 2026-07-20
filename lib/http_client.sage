@@ -23,14 +23,19 @@ proc http_post(host, port, path, body, on_chunk):
     req = req + "Content-Type: application/json\r\n"
     req = req + "Content-Length: " + str(len(body)) + "\r\n"
     req = req + "Accept: application/json\r\n"
-    req = req + "Connection: close\r\n\r\n"
+    req = req + "Connection: keep-alive\r\n\r\n"
     req = req + body
 
     if http_debug:
         print "[http] POST " + path
 
-    let conn = tcp.connect(host, port)
-    tcp.send(conn, req)
+    if host == OLLAMA_HOST and port == OLLAMA_PORT {
+        let conn = get_connection()
+        tcp.send(conn, req)
+    } else {
+        let conn = tcp.connect(host, port)
+        tcp.send(conn, req)
+    }
 
     var status_line = read_line(conn)
     if http_debug:

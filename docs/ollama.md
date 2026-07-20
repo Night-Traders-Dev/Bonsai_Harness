@@ -1,15 +1,15 @@
 # `lib/ollama.sage` — Ollama HTTP Client
 
 This module is the harness's connection to the model. It builds Ollama
-`/api/chat` requests, sends them over a raw TCP socket, parses the responses,
+/api/chat requests, sends them over a raw TCP socket, parses the responses,
 and exposes both a **streaming** and a **one-shot** chat interface. It also owns
-the generation options that tune Bonsai-27B's behavior.
+the generation options that tune Bonsai-4B's behavior.
 
 ## Configuration
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
-| `DEFAULT_MODEL` | `hf.co/prism-ml/Bonsai-27B-gguf:Q1_0` | The model tag sent to Ollama. |
+| `DEFAULT_MODEL` | `hf.co/prism-ml/Bonsai-4B-gguf:Q1_0` | The model tag sent to Ollama. |
 | `OLLAMA_HOST` | `localhost` | Ollama daemon host. |
 | `OLLAMA_PORT` | `11434` | Ollama daemon port. |
 | `GEN_OPTIONS` | JSON fragment | Generation options (see below). |

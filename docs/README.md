@@ -2,7 +2,7 @@
 
 This directory contains detailed, per-component documentation for the Bonsai
 Agent Harness — a [SageLang](https://github.com/Night-Traders-Dev/SageLang)
-program that turns the **Bonsai-27B** model (served locally by **Ollama**) into
+program that turns the **Bonsai-4B** model (served locally by **Ollama**) into
 a tool-using [ReAct](https://arxiv.org/abs/2210.03629) agent with a streaming
 terminal UI, a skills system, and a self-contained benchmark suite.
 
