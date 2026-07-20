@@ -230,6 +230,26 @@ proc _flush_parse(buf, on_token, state):
                             call["arguments_str"] = "" + json.cJSON_Print(fn_args)
                         push(state["final_tool_calls"], call)
                     ti = ti + 1
+        let ttc_node = json.cJSON_GetObjectItem(cj, "tool_calls")
+        if ttc_node != nil:
+            var ti2 = 0
+            while true:
+                let tc = json.cJSON_GetArrayItem(ttc_node, ti2)
+                if tc == nil:
+                    break
+                let fn = json.cJSON_GetObjectItem(tc, "function")
+                if fn != nil:
+                    let call = {}
+                    let fn_name = json.cJSON_GetObjectItem(fn, "name")
+                    if fn_name != nil:
+                        let raw_name = json.cJSON_GetStringValue(fn_name)
+                        if raw_name != nil:
+                            call["name"] = "" + raw_name
+                    let fn_args = json.cJSON_GetObjectItem(fn, "arguments")
+                    if fn_args != nil:
+                        call["arguments_str"] = "" + json.cJSON_Print(fn_args)
+                    push(state["final_tool_calls"], call)
+                ti2 = ti2 + 1
         json.cJSON_Delete(cj)
     return remaining
 
@@ -253,6 +273,11 @@ proc send_and_stream(messages, tools, on_token, on_done):
 
     var status_line = ""
     var ch = tcp.recv(conn, 1)
+    var tries = 0
+    while ch == "" and tries < 10:
+        tries = tries + 1
+        thread.sleep(0.1 * tries)
+        ch = tcp.recv(conn, 1)
     while ch != "\n":
         status_line = status_line + ch
         ch = tcp.recv(conn, 1)
@@ -307,11 +332,13 @@ proc send_and_stream(messages, tools, on_token, on_done):
             var got = 0
             while got < chunk_size:
                 let more = tcp.recv(conn, chunk_size - got)
-                if len(more) == 0:
-                    thread.sleep(0.01)
+                var retries = 5
+                while len(more) == 0 and retries > 0:
+                    thread.sleep(0.02)
                     more = tcp.recv(conn, chunk_size - got)
-                    if len(more) == 0:
-                        break
+                    retries = retries - 1
+                if len(more) == 0:
+                    break
                 chunk_data = chunk_data + more
                 got = got + len(more)
             tcp.recv(conn, 2)
@@ -321,22 +348,27 @@ proc send_and_stream(messages, tools, on_token, on_done):
         var got = 0
         while got < content_length:
             let more = tcp.recv(conn, content_length - got)
-            if len(more) == 0:
-                thread.sleep(0.01)
+            var retries = 5
+            while len(more) == 0 and retries > 0:
+                thread.sleep(0.02)
                 more = tcp.recv(conn, content_length - got)
-                if len(more) == 0:
-                    break
+                retries = retries - 1
+            if len(more) == 0:
+                break
             data = data + more
             got = got + len(more)
         parse_buf = _flush_parse(parse_buf + data, on_token, state)
     else:
         var buf = tcp.recv(conn, 4096)
+        var retries = 5
         while len(buf) > 0:
             parse_buf = _flush_parse(parse_buf + buf, on_token, state)
             buf = tcp.recv(conn, 4096)
-            if len(buf) == 0:
-                thread.sleep(0.01)
+            retries = 5
+            while len(buf) == 0 and retries > 0:
+                thread.sleep(0.02)
                 buf = tcp.recv(conn, 4096)
+                retries = retries - 1
 
     tcp.close(conn)
 
@@ -357,6 +389,18 @@ proc send_and_stream(messages, tools, on_token, on_done):
 
     return final_body
 
+proc unload_model():
+    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
+    let body = "{\"model\":\"" + json_escape(DEFAULT_MODEL) + "\",\"keep_alive\":0}"
+    let req = "POST /api/generate HTTP/1.1\r\n"
+    req = req + "Host: " + OLLAMA_HOST + ":" + str(OLLAMA_PORT) + "\r\n"
+    req = req + "Content-Type: application/json\r\n"
+    req = req + "Content-Length: " + str(len(body)) + "\r\n"
+    req = req + "Connection: close\r\n\r\n"
+    req = req + body
+    tcp.send(conn, req)
+    tcp.close(conn)
+
 proc chat(messages, tools, on_token, on_done):
     let body = send_and_stream(messages, tools, on_token, on_done)
     return parse_response_body(body)
@@ -373,6 +417,7 @@ proc chat_simple(messages, tools):
     return result
 
 proc send_once(messages, tools):
+    import thread
     let body_str = build_request(messages, tools, false)
 
     var req = "POST /api/chat HTTP/1.1\r\n"
@@ -425,15 +470,43 @@ proc send_once(messages, tools):
             let chunk_size = tonumber("0x" + hex_str)
             if chunk_size == 0:
                 break
-            body = body + tcp.recv(conn, chunk_size)
+            var got = 0
+            while got < chunk_size:
+                let more = tcp.recv(conn, chunk_size - got)
+                var retries = 5
+                while len(more) == 0 and retries > 0:
+                    thread.sleep(0.02)
+                    more = tcp.recv(conn, chunk_size - got)
+                    retries = retries - 1
+                if len(more) == 0:
+                    break
+                body = body + more
+                got = got + len(more)
             tcp.recv(conn, 2)
     elif content_length > 0:
-        body = tcp.recv(conn, content_length)
+        var got = 0
+        while got < content_length:
+            let more = tcp.recv(conn, content_length - got)
+            var retries = 5
+            while len(more) == 0 and retries > 0:
+                thread.sleep(0.02)
+                more = tcp.recv(conn, content_length - got)
+                retries = retries - 1
+            if len(more) == 0:
+                break
+            body = body + more
+            got = got + len(more)
     else:
         var buf = tcp.recv(conn, 4096)
+        var retries = 5
         while len(buf) > 0:
             body = body + buf
             buf = tcp.recv(conn, 4096)
+            retries = 5
+            while len(buf) == 0 and retries > 0:
+                thread.sleep(0.02)
+                buf = tcp.recv(conn, 4096)
+                retries = retries - 1
 
     tcp.close(conn)
     return body

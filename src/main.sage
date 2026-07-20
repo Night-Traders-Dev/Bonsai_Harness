@@ -2,6 +2,7 @@ import lib.agent as agent
 import lib.tools as tools
 import lib.tui as tui
 import lib.skills as skills
+import lib.ollama as ollama
 import sys
 
 let skills_dir = "skills"
@@ -27,6 +28,7 @@ proc process_input(line):
     let trimmed = strip(line)
 
     if trimmed == ":quit" or trimmed == ":exit":
+        ollama.unload_model()
         return false
 
     if trimmed == ":clear":
@@ -65,5 +67,6 @@ while running:
     let line = tui.get_input()
     running = process_input(line)
 
+ollama.unload_model()
 print ""
 print "Goodbye!"
