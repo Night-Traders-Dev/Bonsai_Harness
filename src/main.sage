@@ -20,6 +20,8 @@ proc on_tool_call(name, args):
 
 proc on_final(answer):
     tui.print_assistant_footer()
+    if answer != nil and strip(answer) != "":
+        print(answer)
 
 proc process_input(line):
     let trimmed = strip(line)

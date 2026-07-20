@@ -23,33 +23,24 @@ let CYAN  = "\x1b[36m"
 Available: `RESET`, `BOLD`, `DIM`, the eight standard foreground colors, and the
 eight bright variants (`BRIGHT_RED` … `BRIGHT_CYAN`), plus `GRAY`.
 
-## The threaded spinner
+## The "thinking" indicator
 
-While the agent waits for the model's first token, a background thread animates a
-Braille spinner so the UI doesn't look frozen.
+While the agent waits for the model's first token, a static `"  thinking..."`
+message is shown. It is cleared by a carriage-return + erase-line sequence when
+the first token arrives.
 
 ### State
 ```sage
-var _thinking = false           # is the assistant "thinking" right now?
-var _spinner_thread = nil       # handle to the spawned thread
-var _spinner_running = false    # shared stop-flag (guarded by the mutex)
-let _spinner_lock = thread.mutex()
+var _thinking = false    # is the assistant "thinking" right now?
 ```
 
-### `_spinner_loop()`
-The thread body. It cycles through ten Braille frames, writing
-`\r  <frame> thinking...` to stdout every **0.08 s** (`thread.sleep` takes
-**seconds**). Each iteration it reads `_spinner_running` under the mutex; when
-that becomes false it clears the line (`\r\x1b[K`) and exits.
+### `print_assistant_header()`
+Sets `_thinking = true` and prints `"  thinking..."`.
 
-### `start_spinner()`
-Sets `_spinner_running = true` (under the lock) and spawns `_spinner_loop` with
-`thread.spawn`.
-
-### `stop_spinner()`
-Sets `_spinner_running = false` (under the lock) and, if the thread was running,
-`thread.join`s it so the animation is fully cleaned up before anything else is
-printed. This prevents the spinner from racing with real output.
+### `print_token(tok)` (first-token path)
+When `_thinking` is true, prints `\r\x1b[K` (carriage-return + clear line) to
+erase the thinking indicator, then prints the token in green. `_thinking` is
+set to false so subsequent tokens are just printed green.
 
 ## Output primitives
 
@@ -111,9 +102,9 @@ Prints the bold `> ` prompt and returns a line read with `input()`.
 ## Interaction sequence
 
 ```
-print_assistant_header()   → spinner starts
+print_assistant_header()   → "  thinking..."
    ... (waiting) ...
-print_token("The")         → spinner stops, "The" prints green
+print_token("The")         → clears "...thinking...", "The" prints green
 print_token(" answer")     → " answer" prints green
    ... more tokens ...
 print_assistant_footer()   → newline, turn ends
@@ -125,8 +116,8 @@ For a tool call the sequence interleaves `print_assistant_footer()`,
 ## Extending
 
 - **Recolor:** edit the palette constants or `_tool_color`.
-- **Change the spinner:** edit the `frames` list or the sleep interval in
-  `_spinner_loop`.
+- **Re-add an animated spinner:** spawn a background thread from
+  `print_assistant_header` and join it in `print_token` / `print_assistant_footer`.
 - **Adjust result truncation:** change the `12` / `6` thresholds in
   `print_tool_result`.
 

@@ -1,5 +1,6 @@
 # Build artifacts
 bonsai-harness
+bonsai-harness.jit
 bonsai.c
 bonsai.ll
 build/

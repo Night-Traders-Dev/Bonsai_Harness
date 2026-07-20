@@ -81,14 +81,9 @@ proc parse_text_tool_call(content):
 let MAX_CONCURRENT_TOOLS = 4
 let EXECUTION_SEMAPHORE = MAX_CONCURRENT_TOOLS
 import sys
-import datetime
 
 proc get_timestamp():
-    if dict_has(datetime, "now_timestamp") {
-        return datetime.now_timestamp()
-    } else {
-        return sys.clock()
-    }
+    return sys.clock()
 
 proc execute_concurrent_tools(tool_calls, history, on_tool_call):
     var tool_results = []
@@ -96,9 +91,8 @@ proc execute_concurrent_tools(tool_calls, history, on_tool_call):
     var available_slots = EXECUTION_SEMAPHORE
     
     for tool_call in tool_calls:
-        if available_slots <= 0 {
+        if available_slots <= 0:
             break
-        }
         
         let tc_name = tool_call["name"]
         let tc_args = tool_call["arguments"]
@@ -115,15 +109,30 @@ proc execute_concurrent_tools(tool_calls, history, on_tool_call):
         
         push(history, tool_entry)
         
-        if on_tool_call != nil {
+        if on_tool_call != nil:
             on_tool_call("result", tc_name + " (" + str(len(tool_result)) + " chars)")
-        }
         
         push(tool_results, {"name": tc_name, "result": tool_result})
         
         available_slots = available_slots + 1
     
     return history
+
+proc _cjson_into_dict(cj, target):
+    target["path"] = _cjson_get_str(cj, "path")
+    target["content"] = _cjson_get_str(cj, "content")
+    target["pattern"] = _cjson_get_str(cj, "pattern")
+    target["url"] = _cjson_get_str(cj, "url")
+    target["command"] = _cjson_get_str(cj, "command")
+
+proc _cjson_get_str(cj, key):
+    let node = json.cJSON_GetObjectItem(cj, key)
+    if node != nil:
+        let raw = json.cJSON_GetStringValue(node)
+        if raw != nil:
+            return "" + raw
+        return ""
+    return ""
 
 proc run_agent(user_input, history, on_token, on_tool_call, on_final):
     let user_msg = {}
@@ -154,7 +163,14 @@ proc run_agent(user_input, history, on_token, on_tool_call, on_final):
         if tool_calls != nil and len(tool_calls) > 0:
             let tc = tool_calls[0]
             let tc_name = tc["name"]
-            let tc_args = tc["arguments"]
+            var tc_args = {}
+            if dict_has(tc, "arguments_str"):
+                let parsed = json.cJSON_Parse(tc["arguments_str"])
+                if parsed != nil:
+                    _cjson_into_dict(parsed, tc_args)
+                    json.cJSON_Delete(parsed)
+            elif dict_has(tc, "arguments"):
+                tc_args = tc["arguments"]
 
             push(history, {"role": "assistant", "content": content})
 

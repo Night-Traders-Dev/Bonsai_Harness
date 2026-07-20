@@ -46,8 +46,10 @@ either `tui.print_tool_result(args)` (for the `"result"` event) or
 
 ### `on_final(answer)`
 Called once when the agent produces its final answer. It calls
-`tui.print_assistant_footer()` to terminate the assistant's output block. (The
-answer text itself has already been streamed via `on_token`.)
+`tui.print_assistant_footer()` to terminate the assistant's output block and
+then prints the answer text directly via `print`. (The answer text may also
+have been streamed via `on_token`; this ensures it is visible even when the
+model only emits tool calls and no content tokens.)
 
 ## `process_input(line) -> bool`
 

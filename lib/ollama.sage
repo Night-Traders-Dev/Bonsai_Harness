@@ -1,6 +1,7 @@
 import json
 import tcp
 import strings
+import lib.tui as tui
 
 let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
 let OLLAMA_HOST = "localhost"
@@ -17,21 +18,17 @@ proc get_connection():
     let now = get_timestamp()
     let time_since_last = now - last_activity
     
-    if time_since_last > CONNECTION_EXPIRY {
+    if time_since_last > CONNECTION_EXPIRY:
         let conn = CONNECTION_POOL[OLLAMA_HOST]
-        if conn != nil and conn != "" {
+        if conn != nil and conn != "":
             tcp.close(conn)
             CONNECTION_POOL[OLLAMA_HOST] = ""
-        }
-    }
     
-    if dict_has(CONNECTION_POOL, OLLAMA_HOST) {
+    if dict_has(CONNECTION_POOL, OLLAMA_HOST):
         let conn = CONNECTION_POOL[OLLAMA_HOST]
-        if conn != nil and conn != "" {
+        if conn != nil and conn != "":
             last_activity = now
             return conn
-        }
-    }
     
     let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
     CONNECTION_POOL[OLLAMA_HOST] = conn
@@ -40,7 +37,7 @@ proc get_connection():
 
 proc release_connection(conn):
     let existing = CONNECTION_POOL[OLLAMA_HOST]
-    if existing != nil and existing != "" {
+    if existing != nil and existing != "":
         tcp.close(existing)
         CONNECTION_POOL[OLLAMA_HOST] = ""
         last_activity = 0
@@ -129,7 +126,9 @@ proc parse_response_body(body_str):
 
     let error_node = json.cJSON_GetObjectItem(obj, "error")
     if error_node != nil:
-        result["error"] = json.cJSON_GetStringValue(error_node)
+        let raw_err = json.cJSON_GetStringValue(error_node)
+        if raw_err != nil:
+            result["error"] = "" + raw_err
         json.cJSON_Delete(obj)
         return result
 
@@ -143,11 +142,15 @@ proc parse_response_body(body_str):
 
     let content_node = json.cJSON_GetObjectItem(msg, "content")
     if content_node != nil:
-        result["content"] = json.cJSON_GetStringValue(content_node)
+        let raw = json.cJSON_GetStringValue(content_node)
+        if raw != nil:
+            result["content"] = "" + raw
 
     let thinking_node = json.cJSON_GetObjectItem(msg, "thinking")
     if thinking_node != nil:
-        result["thinking"] = json.cJSON_GetStringValue(thinking_node)
+        let raw = json.cJSON_GetStringValue(thinking_node)
+        if raw != nil:
+            result["thinking"] = "" + raw
 
     let tc_node = json.cJSON_GetObjectItem(msg, "tool_calls")
     if tc_node != nil:
@@ -161,34 +164,92 @@ proc parse_response_body(body_str):
                 let call = {}
                 let fn_name = json.cJSON_GetObjectItem(fn, "name")
                 if fn_name != nil:
-                    call["name"] = json.cJSON_GetStringValue(fn_name)
+                    let raw = json.cJSON_GetStringValue(fn_name)
+                    if raw != nil:
+                        call["name"] = "" + raw
                 let fn_args = json.cJSON_GetObjectItem(fn, "arguments")
                 if fn_args != nil:
-                    let args_str = json.cJSON_Print(fn_args)
-                    let parsed = json.cJSON_Parse(args_str)
-                    if parsed != nil:
-                        call["arguments"] = parsed
-                        json.cJSON_Delete(parsed)
+                    call["arguments_str"] = "" + json.cJSON_Print(fn_args)
                 push(result["tool_calls"], call)
             i = i + 1
 
     json.cJSON_Delete(obj)
     return result
 
+proc _flush_parse(buf, on_token, state):
+    let lines = split(buf, "\n")
+    var remaining = ""
+    let n = len(lines)
+    for li in range(n):
+        let line = strip(lines[li])
+        if line == "":
+            continue
+        if li == n - 1 and not endswith(buf, "\n"):
+            remaining = line
+            continue
+        let cj = json.cJSON_Parse(line)
+        if cj == nil:
+            continue
+        let cmsg = json.cJSON_GetObjectItem(cj, "message")
+        if cmsg != nil:
+            let cnode = json.cJSON_GetObjectItem(cmsg, "content")
+            if cnode != nil:
+                let raw_tok = json.cJSON_GetStringValue(cnode)
+                if raw_tok != nil:
+                    let tok = "" + raw_tok
+                    if len(tok) > 0:
+                        state["full_content"] = state["full_content"] + tok
+                        if on_token != nil:
+                            on_token(tok)
+            let tnode = json.cJSON_GetObjectItem(cmsg, "thinking")
+            if tnode != nil:
+                let raw_ttok = json.cJSON_GetStringValue(tnode)
+                if raw_ttok != nil:
+                    let ttok = "" + raw_ttok
+                    if len(ttok) > 0:
+                        state["full_content"] = state["full_content"] + ttok
+                        if on_token != nil:
+                            on_token(ttok)
+            let tc_node = json.cJSON_GetObjectItem(cmsg, "tool_calls")
+            if tc_node != nil:
+                var ti = 0
+                while true:
+                    let tc = json.cJSON_GetArrayItem(tc_node, ti)
+                    if tc == nil:
+                        break
+                    let fn = json.cJSON_GetObjectItem(tc, "function")
+                    if fn != nil:
+                        let call = {}
+                        let fn_name = json.cJSON_GetObjectItem(fn, "name")
+                        if fn_name != nil:
+                            let raw_name = json.cJSON_GetStringValue(fn_name)
+                            if raw_name != nil:
+                                call["name"] = "" + raw_name
+                        let fn_args = json.cJSON_GetObjectItem(fn, "arguments")
+                        if fn_args != nil:
+                            call["arguments_str"] = "" + json.cJSON_Print(fn_args)
+                        push(state["final_tool_calls"], call)
+                    ti = ti + 1
+        json.cJSON_Delete(cj)
+    return remaining
+
 proc send_and_stream(messages, tools, on_token, on_done):
+    import thread
+
     let body_str = build_request(messages, tools, true)
 
+    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
     let req = "POST /api/chat HTTP/1.1\r\n"
     req = req + "Host: " + OLLAMA_HOST + ":" + str(OLLAMA_PORT) + "\r\n"
     req = req + "Content-Type: application/json\r\n"
     req = req + "Content-Length: " + str(len(body_str)) + "\r\n"
     req = req + "Accept: application/x-ndjson\r\n"
-    req = req + "Connection: keep-alive\r\n\r\n"
+    req = req + "Connection: close\r\n\r\n"
     req = req + body_str
 
-    let conn = get_connection()
-    tcp.send(conn, req)
     tcp.sendall(conn, req)
+
+    # (spinner was already stopped when first token was received)
 
     var status_line = ""
     var ch = tcp.recv(conn, 1)
@@ -219,69 +280,20 @@ proc send_and_stream(messages, tools, on_token, on_done):
                 if contains(strip(parts[1]), "chunked"):
                     chunked = true
 
-    var full_content = ""
-    var final_tool_calls = []
+    var state = {}
+    state["full_content"] = ""
+    state["final_tool_calls"] = []
     var parse_buf = ""
-
-    proc flush_parse_buf(buf):
-        let lines = split(buf, "\n")
-        var remaining = ""
-        let n = len(lines)
-        for li in range(n):
-            let line = strip(lines[li])
-            if line == "":
-                continue
-            if li == n - 1 and not endswith(buf, "\n"):
-                remaining = line
-                continue
-            let cj = json.cJSON_Parse(line)
-            if cj == nil:
-                continue
-            let cmsg = json.cJSON_GetObjectItem(cj, "message")
-            if cmsg != nil:
-                let cnode = json.cJSON_GetObjectItem(cmsg, "content")
-                if cnode != nil:
-                    let tok = json.cJSON_GetStringValue(cnode)
-                    if tok != nil and len(tok) > 0:
-                        full_content = full_content + tok
-                        if on_token != nil:
-                            on_token(tok)
-                let tnode = json.cJSON_GetObjectItem(cmsg, "thinking")
-                if tnode != nil:
-                    let ttok = json.cJSON_GetStringValue(tnode)
-                    if ttok != nil and len(ttok) > 0:
-                        full_content = full_content + ttok
-                        if on_token != nil:
-                            on_token(ttok)
-                let tc_node = json.cJSON_GetObjectItem(cmsg, "tool_calls")
-                if tc_node != nil:
-                    var ti = 0
-                    while true:
-                        let tc = json.cJSON_GetArrayItem(tc_node, ti)
-                        if tc == nil:
-                            break
-                        let fn = json.cJSON_GetObjectItem(tc, "function")
-                        if fn != nil:
-                            let call = {}
-                            let fn_name = json.cJSON_GetObjectItem(fn, "name")
-                            if fn_name != nil:
-                                call["name"] = json.cJSON_GetStringValue(fn_name)
-                            let fn_args = json.cJSON_GetObjectItem(fn, "arguments")
-                            if fn_args != nil:
-                                let args_str = json.cJSON_Print(fn_args)
-                                let parsed = json.cJSON_Parse(args_str)
-                                if parsed != nil:
-                                    call["arguments"] = parsed
-                                    json.cJSON_Delete(parsed)
-                            push(final_tool_calls, call)
-                        ti = ti + 1
-            json.cJSON_Delete(cj)
-        return remaining
 
     if chunked:
         while true:
             var sl = ""
             ch = tcp.recv(conn, 1)
+            if ch == "":
+                thread.sleep(0.01)
+                ch = tcp.recv(conn, 1)
+                if ch == "":
+                    break
             while ch != "\n":
                 sl = sl + ch
                 ch = tcp.recv(conn, 1)
@@ -291,28 +303,50 @@ proc send_and_stream(messages, tools, on_token, on_done):
             let chunk_size = tonumber("0x" + hex_str)
             if chunk_size == 0:
                 break
-            let chunk_data = tcp.recv(conn, chunk_size)
+            var chunk_data = ""
+            var got = 0
+            while got < chunk_size:
+                let more = tcp.recv(conn, chunk_size - got)
+                if len(more) == 0:
+                    thread.sleep(0.01)
+                    more = tcp.recv(conn, chunk_size - got)
+                    if len(more) == 0:
+                        break
+                chunk_data = chunk_data + more
+                got = got + len(more)
             tcp.recv(conn, 2)
-            parse_buf = flush_parse_buf(parse_buf + chunk_data)
+            parse_buf = _flush_parse(parse_buf + chunk_data, on_token, state)
+    elif content_length > 0:
+        var data = ""
+        var got = 0
+        while got < content_length:
+            let more = tcp.recv(conn, content_length - got)
+            if len(more) == 0:
+                thread.sleep(0.01)
+                more = tcp.recv(conn, content_length - got)
+                if len(more) == 0:
+                    break
+            data = data + more
+            got = got + len(more)
+        parse_buf = _flush_parse(parse_buf + data, on_token, state)
     else:
-        if content_length > 0:
-            let data = tcp.recv(conn, content_length)
-            parse_buf = flush_parse_buf(parse_buf + data)
-        else:
-            var buf = tcp.recv(conn, 4096)
-            while len(buf) > 0:
-                parse_buf = flush_parse_buf(parse_buf + buf)
+        var buf = tcp.recv(conn, 4096)
+        while len(buf) > 0:
+            parse_buf = _flush_parse(parse_buf + buf, on_token, state)
+            buf = tcp.recv(conn, 4096)
+            if len(buf) == 0:
+                thread.sleep(0.01)
                 buf = tcp.recv(conn, 4096)
 
     tcp.close(conn)
 
-    let final_body = "{\"message\":{\"role\":\"assistant\",\"content\":\"" + json_escape(full_content) + "\""
-    if len(final_tool_calls) > 0:
+    let final_body = "{\"message\":{\"role\":\"assistant\",\"content\":\"" + json_escape(state["full_content"]) + "\""
+    if len(state["final_tool_calls"]) > 0:
         let tc_parts = []
-        for tc in final_tool_calls:
+        for tc in state["final_tool_calls"]:
             let args_str = "{}"
-            if dict_has(tc, "arguments"):
-                args_str = json.cJSON_Print(tc["arguments"])
+            if dict_has(tc, "arguments_str"):
+                args_str = tc["arguments_str"]
             let entry = "{\"function\":{\"name\":\"" + json_escape(tc["name"]) + "\",\"arguments\":" + args_str + "}}"
             push(tc_parts, entry)
         final_body = final_body + ",\"tool_calls\":[" + join(tc_parts, ",") + "]"

@@ -44,38 +44,6 @@ let BRIGHT_MAGENTA = "\x1b[95m"
 let BRIGHT_CYAN = "\x1b[96m"
 
 var _thinking = false
-var _spinner_thread = nil
-var _spinner_running = false
-let _spinner_lock = thread.mutex()
-
-proc _spinner_loop():
-    let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    var i = 0
-    var go = true
-    while go:
-        thread.lock(_spinner_lock)
-        go = _spinner_running
-        thread.unlock(_spinner_lock)
-        if go:
-            sys.stdout_write("\r" + DIM + "  " + frames[i % 10] + " thinking..." + RESET)
-            i = i + 1
-            thread.sleep(0.08)
-    sys.stdout_write("\r\x1b[K")
-
-proc start_spinner():
-    thread.lock(_spinner_lock)
-    _spinner_running = true
-    thread.unlock(_spinner_lock)
-    _spinner_thread = thread.spawn(_spinner_loop)
-
-proc stop_spinner():
-    thread.lock(_spinner_lock)
-    let was_running = _spinner_running
-    _spinner_running = false
-    thread.unlock(_spinner_lock)
-    if was_running and _spinner_thread != nil:
-        thread.join(_spinner_thread)
-        _spinner_thread = nil
 
 proc print_raw(text):
     sys.stdout_write(text)
@@ -106,18 +74,17 @@ proc print_user_msg(text):
 
 proc print_assistant_header():
     _thinking = true
-    start_spinner()
+    print_raw(DIM + "  thinking..." + RESET)
 
 proc print_token(tok):
     if _thinking:
-        stop_spinner()
         print_raw("\r\x1b[K" + GREEN + "  " + RESET)
         _thinking = false
     print_raw(GREEN + strip_ansi(tok) + RESET)
 
 proc print_assistant_footer():
     if _thinking:
-        stop_spinner()
+        print_raw("\r\x1b[K")
         _thinking = false
     print_nl()
 
@@ -184,4 +151,6 @@ proc show_help():
 proc get_input():
     print_raw(BOLD + "> " + RESET)
     let line = input()
+    if line == nil:
+        return ":quit"
     return line

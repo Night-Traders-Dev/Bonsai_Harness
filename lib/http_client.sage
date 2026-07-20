@@ -29,13 +29,12 @@ proc http_post(host, port, path, body, on_chunk):
     if http_debug:
         print "[http] POST " + path
 
-    if host == OLLAMA_HOST and port == OLLAMA_PORT {
+    if host == OLLAMA_HOST and port == OLLAMA_PORT:
         let conn = get_connection()
         tcp.send(conn, req)
-    } else {
+    else:
         let conn = tcp.connect(host, port)
         tcp.send(conn, req)
-    }
 
     var status_line = read_line(conn)
     if http_debug:

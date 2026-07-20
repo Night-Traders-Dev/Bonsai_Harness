@@ -155,29 +155,39 @@ def cmd_compile(args):
     out_path = ROOT / BINARY_NAME
 
     step("building JIT-packaged binary")
+    jit_bin = out_path.with_name(out_path.name + ".jit")
     result = subprocess.run(
-        [SAGE, "--jit", MAIN_SAGE, "-o", str(out_path)],
+        [SAGE, "--jit", MAIN_SAGE, "-o", str(jit_bin)],
         capture_output=True, text=True, timeout=120,
         cwd=ROOT,
     )
 
-    if result.returncode == 0 and out_path.exists():
+    if result.returncode == 0 and jit_bin.exists():
         ok()
-        step_ok(f"binary at {out_path}")
+        step_ok(f"JIT binary at {jit_bin}")
     else:
-        step_warn("JIT packaging failed, falling back to run script")
+        step_warn("JIT packaging failed, falling back to interpreter")
         for line in result.stderr.split("\n")[:5]:
             if line.strip():
                 print(f"      {YELLOW}{line.strip()}{RESET}")
+        jit_bin = None
 
-        step("creating run script")
+    step("creating run script")
+    if jit_bin:
+        run_script = ROOT / BINARY_NAME
+        run_script.write_text(
+            f"#!/bin/sh\n"
+            f'export SAGE_PATH="{ROOT}:{LIB_DIR}:${{SAGE_PATH:-}}"\n'
+            f'exec "{jit_bin}" "$@"\n'
+        )
+    else:
         run_script = ROOT / BINARY_NAME
         run_script.write_text(
             f"#!/bin/sh\n"
             f'exec {SAGE} --runtime jit -I "{ROOT}" -I "{LIB_DIR}" "{ROOT / MAIN_SAGE}" "$@"\n'
         )
-        run_script.chmod(0o755)
-        step_ok(f"script at {run_script}")
+    run_script.chmod(0o755)
+    step_ok(f"script at {run_script}")
 
 
 def cmd_run(args):

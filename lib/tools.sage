@@ -19,8 +19,6 @@ var WORKSPACE_ROOT = "."
 proc _validate_path(path):
     if path == nil or strip(path) == "":
         return "Error: path is empty"
-    if startswith(path, "/"):
-        return "Error: path must be relative to the workspace (got absolute path)"
     if contains(path, ".."):
         return "Error: path traversal not allowed ('..' in path)"
     return path
