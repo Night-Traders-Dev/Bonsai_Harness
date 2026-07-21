@@ -8,7 +8,8 @@ import lib.model_config as cfg
 import sys
 
 let skills_dir = "skills"
-var history = agent.init_history_with_skills(skills.load_skills(skills_dir))
+skills.load_skills(skills_dir)
+var history = agent.init_history_with_skills(skills.get_skills_content())
 var running = true
 
 provider.use_primary()

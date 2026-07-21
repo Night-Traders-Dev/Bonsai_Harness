@@ -75,7 +75,7 @@ proc release_connection(conn):
 #  - repeat_penalty 1.15: discourage repetition without distorting short answers
 #  - num_predict 2048: enough room to finish reasoning AND emit the final answer
 #    (too small a cap truncates mid-thinking and yields empty content)
-let GEN_OPTIONS = "\"num_ctx\":8192,\"temperature\":0.1,\"top_k\":40,\"top_p\":0.9,\"min_p\":0.05,\"repeat_penalty\":1.15,\"num_predict\":2048"
+let GEN_OPTIONS = "\"num_ctx\":2048,\"temperature\":0.1,\"top_k\":40,\"top_p\":0.9,\"min_p\":0.05,\"repeat_penalty\":1.15,\"num_predict\":1024"
 
 # Keep the model resident in memory between requests to avoid reload latency.
 let KEEP_ALIVE = "\"keep_alive\":\"10m\""
@@ -305,28 +305,36 @@ proc send_and_stream(messages, tools, on_token, on_done):
 
     tcp.sendall(conn, req)
 
-    # (spinner was already stopped when first token was received)
+    let _start = sys.clock()
 
     var status_line = ""
     var ch = tcp.recv(conn, 1)
-    var tries = 0
-    while ch == "" and tries < 10:
-        tries = tries + 1
-        thread.sleep(0.1 * tries)
+    while ch == "" and not _check_timeout(_start, _timeout_ms):
+        thread.sleep(0.02)
         ch = tcp.recv(conn, 1)
-    while ch != "\n":
+
+    while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
         status_line = status_line + ch
         ch = tcp.recv(conn, 1)
+        while ch == "" and not _check_timeout(_start, _timeout_ms):
+            thread.sleep(0.02)
+            ch = tcp.recv(conn, 1)
 
     var content_length = 0
     var chunked = false
 
-    while true:
+    while not _check_timeout(_start, _timeout_ms):
         var hdr = ""
         ch = tcp.recv(conn, 1)
-        while ch != "\n":
+        while ch == "" and not _check_timeout(_start, _timeout_ms):
+            thread.sleep(0.02)
+            ch = tcp.recv(conn, 1)
+        while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
             hdr = hdr + ch
             ch = tcp.recv(conn, 1)
+            while ch == "" and not _check_timeout(_start, _timeout_ms):
+                thread.sleep(0.02)
+                ch = tcp.recv(conn, 1)
         hdr = strip(hdr)
         if hdr == "":
             break
@@ -347,34 +355,33 @@ proc send_and_stream(messages, tools, on_token, on_done):
     var parse_buf = ""
 
     if chunked:
-        while true:
+        while not _check_timeout(_start, _timeout_ms):
             var sl = ""
-            ch = tcp.recv(conn, 1)
-            if ch == "":
-                thread.sleep(0.01)
+            var ch = tcp.recv(conn, 1)
+            while ch == "" and not _check_timeout(_start, _timeout_ms):
+                thread.sleep(0.02)
                 ch = tcp.recv(conn, 1)
-                if ch == "":
-                    break
-            while ch != "\n":
+            if ch == "":
+                break
+            while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
                 sl = sl + ch
                 ch = tcp.recv(conn, 1)
+                while ch == "" and not _check_timeout(_start, _timeout_ms):
+                    thread.sleep(0.02)
+                    ch = tcp.recv(conn, 1)
             let hex_str = strip(sl)
             if hex_str == "":
                 break
             let chunk_size = tonumber("0x" + hex_str)
-            if chunk_size == 0:
+            if chunk_size == nil or chunk_size == 0:
                 break
             var chunk_data = ""
             var got = 0
-            while got < chunk_size:
+            while got < chunk_size and not _check_timeout(_start, _timeout_ms):
                 let more = tcp.recv(conn, chunk_size - got)
-                var retries = 5
-                while len(more) == 0 and retries > 0:
-                    thread.sleep(0.02)
-                    more = tcp.recv(conn, chunk_size - got)
-                    retries = retries - 1
                 if len(more) == 0:
-                    break
+                    thread.sleep(0.02)
+                    continue
                 chunk_data = chunk_data + more
                 got = got + len(more)
             tcp.recv(conn, 2)
@@ -382,29 +389,23 @@ proc send_and_stream(messages, tools, on_token, on_done):
     elif content_length > 0:
         var data = ""
         var got = 0
-        while got < content_length:
+        while got < content_length and not _check_timeout(_start, _timeout_ms):
             let more = tcp.recv(conn, content_length - got)
-            var retries = 5
-            while len(more) == 0 and retries > 0:
-                thread.sleep(0.02)
-                more = tcp.recv(conn, content_length - got)
-                retries = retries - 1
             if len(more) == 0:
-                break
+                thread.sleep(0.02)
+                continue
             data = data + more
             got = got + len(more)
         parse_buf = _flush_parse(parse_buf + data, on_token, state)
     else:
         var buf = tcp.recv(conn, 4096)
-        var retries = 5
-        while len(buf) > 0:
-            parse_buf = _flush_parse(parse_buf + buf, on_token, state)
+        while len(buf) > 0 or not _check_timeout(_start, _timeout_ms):
+            if len(buf) > 0:
+                parse_buf = _flush_parse(parse_buf + buf, on_token, state)
+            thread.sleep(0.02)
             buf = tcp.recv(conn, 4096)
-            retries = 5
-            while len(buf) == 0 and retries > 0:
-                thread.sleep(0.02)
-                buf = tcp.recv(conn, 4096)
-                retries = retries - 1
+            if len(buf) == 0:
+                break
 
     tcp.close(conn)
 

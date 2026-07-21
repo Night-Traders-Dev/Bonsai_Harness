@@ -173,8 +173,8 @@ proc test_set_timeout_default():
     return expect_eq(ollama.get_timeout(), 60000)
 
 proc test_compile_with_timeout():
-    ollama.set_timeout(100)
-    let result = compiler.compile_tool_call("test intent", tools.get_tool_list(), 100)
+    ollama.set_timeout(1)
+    let result = compiler.compile_tool_call("test intent", tools.get_tool_list(), 1)
     if result["success"]:
         print "    WARNING: compile succeeded (model available, timeout not tested)"
         return true

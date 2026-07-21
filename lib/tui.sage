@@ -49,26 +49,12 @@ let BRIGHT_MAGENTA = "\x1b[95m"
 let BRIGHT_CYAN = "\x1b[96m"
 
 var _thinking = false
-var _spinner_running = false
-var _spinner_thread = nil
 var _in_think_block = false
 
-proc _spinner_loop():
-    let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    var idx = 0
-    while _spinner_running:
-        let f = frames[idx % len(frames)]
-        sys.stdout_write("\r\x1b[K  " + CYAN + f + RESET + DIM + " thinking..." + RESET)
-        thread.sleep(0.08)
-        idx = idx + 1
-
 proc stop_spinner():
-    if _spinner_running:
-        _spinner_running = false
-        if _spinner_thread != nil:
-            thread.join(_spinner_thread)
-            _spinner_thread = nil
+    if _thinking:
         sys.stdout_write("\r\x1b[K")
+        _thinking = false
 
 proc print_raw(text):
     sys.stdout_write(text)
@@ -100,20 +86,17 @@ proc print_user_msg(text):
 proc print_assistant_header():
     stop_spinner()
     _thinking = true
-    _spinner_running = true
-    _spinner_thread = thread.spawn(_spinner_loop)
+    print_raw(DIM + "  thinking..." + RESET)
 
 proc print_token(tok):
     stop_spinner()
-    if _thinking:
-        _thinking = false
-        sys.stdout_write("\r\x1b[K  ")
 
     let clean_tok = strip_ansi(tok)
 
     if contains(clean_tok, "<think>"):
-        _in_think_block = true
-        print_raw(DIM + GRAY + "💭 Reasoning:\n  " + RESET)
+        if not _in_think_block:
+            _in_think_block = true
+            print_raw(DIM + GRAY + "💭 Reasoning:\n  " + RESET)
         let rest = replace(clean_tok, "<think>", "")
         if len(rest) > 0:
             print_raw(DIM + GRAY + rest + RESET)
@@ -136,9 +119,6 @@ proc print_token(tok):
 
 proc print_assistant_footer():
     stop_spinner()
-    if _thinking:
-        sys.stdout_write("\r\x1b[K")
-        _thinking = false
     _in_think_block = false
     print_nl()
 

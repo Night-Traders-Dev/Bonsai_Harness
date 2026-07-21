@@ -198,9 +198,9 @@ proc run_agent(user_input, history, on_token, on_tool_call, on_final):
         provider.use_primary()
 
         if on_token != nil:
-            response = provider.chat(history, tool_defs, on_token, nil)
+            response = provider.chat(history, nil, on_token, nil)
         else:
-            response = provider.chat(history, tool_defs, nil, nil)
+            response = provider.chat(history, nil, nil, nil)
 
         if dict_has(response, "error"):
             let err = response["error"]
@@ -210,7 +210,14 @@ proc run_agent(user_input, history, on_token, on_tool_call, on_final):
             return
 
         let tool_calls = response["tool_calls"]
-        let content = response["content"]
+        var content = response["content"]
+        if content == nil or strip(content) == "":
+            if dict_has(response, "thinking"):
+                let t = response["thinking"]
+                if t != nil and strip(t) != "":
+                    content = t
+        if content == nil:
+            content = ""
 
         if tool_calls != nil and len(tool_calls) > 0:
             let tc = tool_calls[0]
