@@ -39,7 +39,7 @@
 | SageLang | ≥ 4.1.0 | `git clone https://github.com/Night-Traders-Dev/SageLang && cd SageLang && sudo ./sagemake --install --skip-tests` |
 | Ollama | ≥ 0.32.1 | `curl -fsSL https://ollama.com/install.sh \| sh` |
 | Bonsai-4B | Q1_0 | `ollama pull hf.co/prism-ml/Bonsai-4B-gguf:Q1_0` |
-| MiniCPM5-1B | Q8_0 | `ollama pull hf.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF:Q8_0` |
+| MiniCPM5-1B | F16 | `ollama pull hf.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF:F16` |
 
 ---
 
@@ -55,7 +55,7 @@ ollama serve
 
 # 3. Pull the models
 ollama pull hf.co/prism-ml/Bonsai-4B-gguf:Q1_0
-ollama pull hf.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF:Q8_0
+ollama pull hf.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF:F16
 
 # 4. Launch the harness
 ./sagemake run

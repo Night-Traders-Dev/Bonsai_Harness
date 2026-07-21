@@ -207,13 +207,9 @@ Two operating modes are supported:
 The current implementation uses dynamic loading — `ollama.set_model()` triggers
 Ollama to load/unload models as needed.
 
-## 11. Concurrency
+## 11. Terminal UI & State Management
 
-The only concurrency in the harness is the **thinking spinner**. When the agent
-is waiting for the first token, `lib/tui.sage` spawns a background thread
-(`thread.spawn`) that animates a Braille spinner. A mutex-guarded boolean
-(`_spinner_running`) tells the thread when to stop, and `thread.join` waits for
-it to finish before the first real token is printed.
+Terminal rendering in `lib/tui.sage` uses clean single-threaded state tracking. While waiting for Ollama tokens, `  thinking...` is displayed. As tokens stream in, `print_token` detects `<think>` and `</think>` tags, formatting reasoning blocks in dimmed gray under a `💭 Reasoning:` header.
 
 ## 12. Context management
 
@@ -226,7 +222,7 @@ middle messages.
 
 `lib/ollama.sage` centralizes generation options in `GEN_OPTIONS`:
 
-- `num_ctx: 8192` — full context window.
+- `num_ctx: 2048` — optimized context window for fast local CPU inference.
 - `temperature: 0.1` with `top_k`/`top_p`/`min_p` — near-greedy but avoids
   degenerate single-token loops common in 1-bit quants.
 - `repeat_penalty: 1.15` — discourages repetition.
