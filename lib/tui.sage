@@ -176,25 +176,95 @@ proc print_tool_result(result):
             print_raw(lines[i])
             print_nl()
 
+var input_history = []
+var eof_count = 0
+
+let BUILTIN_COMMANDS = [":help", ":clear", ":history", ":models", ":ingest-skills", ":bench", ":quit", ":exit"]
+
+proc add_to_input_history(line):
+    let trimmed = strip(line)
+    if trimmed != "" and not startswith(trimmed, ":"):
+        var exists = false
+        for item in input_history:
+            if item == trimmed:
+                exists = true
+        if not exists:
+            push(input_history, trimmed)
+
+proc find_suggestion(prefix):
+    let p = strip(prefix)
+    if p == "":
+        return ""
+
+    if startswith(p, ":"):
+        for cmd in BUILTIN_COMMANDS:
+            if startswith(cmd, p) and cmd != p:
+                return cmd
+    else:
+        for item in input_history:
+            if startswith(lower(item), lower(p)) and item != p:
+                return item
+    return ""
+
 proc show_help():
     print_nl()
-    print_raw(BOLD + "Commands:" + RESET)
+    print_raw(BOLD + "Commands & Shortcuts:" + RESET)
     print_nl()
-    print_raw("  " + CYAN + ":quit" + RESET + ", " + CYAN + ":exit" + RESET + "     Exit the harness")
+    print_raw("  " + CYAN + ":clear" + RESET + " (or " + BOLD + "Ctrl+L" + RESET + ")     Clear screen")
     print_nl()
-    print_raw("  " + CYAN + ":clear" + RESET + "           Clear screen")
+    print_raw("  " + CYAN + ":help" + RESET + "                 Show this help menu")
     print_nl()
-    print_raw("  " + CYAN + ":help" + RESET + "            Show this help")
+    print_raw("  " + CYAN + ":history" + RESET + "              Show conversation history count")
     print_nl()
-    print_raw("  " + CYAN + ":history" + RESET + "         Show conversation history count")
+    print_raw("  " + CYAN + ":models" + RESET + "               Show active model configuration")
     print_nl()
-    print_raw("  " + CYAN + ":ingest-skills" + RESET + "   Reload skill files from skills/ directory")
+    print_raw("  " + CYAN + ":ingest-skills" + RESET + "        Reload skill files from skills/ directory")
+    print_nl()
+    print_raw("  " + CYAN + ":quit" + RESET + " / " + CYAN + ":exit" + RESET + "         Exit the harness")
+    print_nl()
+    print_raw("  " + BOLD + "Tab" + RESET + "                   Autocomplete command or history suggestion")
+    print_nl()
+    print_raw("  " + BOLD + "Esc" + RESET + " / " + BOLD + "Ctrl+C" + RESET + "            Interrupt active query without exiting")
+    print_nl()
+    print_raw("  " + BOLD + "Ctrl+D" + RESET + " (twice)        Exit harness and unload models to free RAM")
     print_nl()
     print_nl()
 
 proc get_input():
     print_raw(BOLD + "> " + RESET)
     let line = input()
+
     if line == nil:
-        return ":quit"
+        eof_count = eof_count + 1
+        if eof_count == 1:
+            print_raw(DIM + " (Press Ctrl+D again to exit & unload RAM)\n" + RESET)
+            return ""
+        eof_count = 0
+        return ":quit-unload"
+
+    eof_count = 0
+
+    if contains(line, "\x0c"):
+        clear_screen()
+        show_header()
+        return ""
+
+    if contains(line, "\t"):
+        let parts = split(line, "\t")
+        let prefix = parts[0]
+        let match = find_suggestion(prefix)
+        if match != "":
+            print_raw(GRAY + " → " + match + RESET + "\n")
+            add_to_input_history(match)
+            return match
+        return prefix
+
+    let trimmed = strip(line)
+
+    if startswith(trimmed, ":clear"):
+        clear_screen()
+        show_header()
+        return ""
+
+    add_to_input_history(trimmed)
     return line

@@ -23,9 +23,26 @@ let CYAN  = "\x1b[36m"
 Available: `RESET`, `BOLD`, `DIM`, the eight standard foreground colors, and the
 eight bright variants (`BRIGHT_RED` … `BRIGHT_CYAN`), plus `GRAY`.
 
+## Fish-Style History & Autocomplete
+
+`get_input()` provides Fish-shell style command and query completion:
+- **Autosuggestions**: Matches typed text against `BUILTIN_COMMANDS` (`:help`, `:clear`, `:history`, `:models`, `:ingest-skills`, `:bench`, `:quit`, `:exit`) or past query history.
+- **Tab Key (`\t`)**: Autocompletes the input line with the matched suggestion.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action | Implementation |
+|----------|--------|----------------|
+| `Ctrl + L` (`\x0c`) | Clear screen & redraw header | `clear_screen()` + `show_header()` |
+| `Tab` (`\t`) | Accept autosuggestion | `find_suggestion(prefix)` |
+| `Esc` (`\x1b`) / `Ctrl + C` (`\x03`) | Interrupt active query | Thread event loop cancellation |
+| `Ctrl + D` (`\x04`) (twice) | Exit harness & unload models | Unloads Bonsai-4B & MiniCPM5-1B to free RAM |
+
+---
+
 ## The "thinking" indicator & reasoning stream
 
-While the agent waits for the model's first token, a clean indicator (`  thinking...`) is rendered. When tokens arrive, `print_token(tok)` detects `<think>` and `</think>` tags, formatting reasoning text in dimmed gray under a `💭 Reasoning:` header before streaming the final answer in green output.
+While the agent waits for the model's first token, a live braille spinner (`  ⠋ thinking...`, `  ⠙ thinking...`, `  ⠹ thinking...`) is driven by the main thread's non-blocking event pump. When tokens arrive, `print_token(tok)` detects `<think>` and `</think>` tags, formatting reasoning text in dimmed gray under a `💭 Reasoning:` header before streaming the final answer in green output.
 
 ### State
 ```sage
@@ -34,7 +51,7 @@ var _in_think_block = false   # is the token stream inside a <think> reasoning b
 ```
 
 ### `print_assistant_header()`
-Sets `_thinking = true` and prints `  thinking...`.
+Sets `_thinking = true` and initial braille frame.
 
 ### `print_token(tok)` (first-token & reasoning path)
 Stops and clears `  thinking...` via `stop_spinner()`. Parses `<think>` and `</think>` tags to format reasoning output in dimmed gray under a `💭 Reasoning:` header before switching to green output for the final answer.
@@ -52,7 +69,7 @@ Stops and clears `  thinking...` via `stop_spinner()`. Parses `<think>` and `</t
 ### `show_header()` / `print_banner()`
 `show_header` draws the cyan boxed title ("⚡ Bonsai Agent Harness" + subtitle).
 `print_banner` clears the screen, draws the header, and prints the "type a
-message or :help" hint. `:clear` in the REPL calls `print_banner`.
+message or :help" hint. `:clear` or `Ctrl+L` in the REPL calls `print_banner`.
 
 ### `print_user_msg(text)`
 Renders the user's message with a blue `┃` gutter and blank lines around it.

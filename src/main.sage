@@ -22,6 +22,11 @@ proc process_input(line):
         provider.unload_current()
         return false
 
+    if trimmed == ":quit-unload":
+        print "\x1b[33mUnloading models and freeing RAM...\x1b[0m"
+        provider.unload_all()
+        return false
+
     if trimmed == ":clear":
         tui.print_banner()
         return true
@@ -46,6 +51,11 @@ proc process_input(line):
         print "Primary: " + cfg.MODEL_BONSAI
         print "Tool Compiler: " + cfg.MODEL_MINICPM
         print "Current: " + provider.get_current_model()
+        return true
+
+    if trimmed == ":bench":
+        import bench.run_bench as bench_runner
+        bench_runner.main()
         return true
 
     if trimmed == "":

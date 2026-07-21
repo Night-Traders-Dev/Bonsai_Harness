@@ -486,27 +486,31 @@ proc send_once(messages, tools):
 
     var status_line = ""
     var ch = tcp.recv(conn, 1)
-    while ch != "\n":
-        if _check_timeout(_start, _timeout_ms):
-            tcp.close(conn)
-            return ""
+    while ch == "" and not _check_timeout(_start, _timeout_ms):
+        thread.sleep(0.02)
+        ch = tcp.recv(conn, 1)
+
+    while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
         status_line = status_line + ch
         ch = tcp.recv(conn, 1)
+        while ch == "" and not _check_timeout(_start, _timeout_ms):
+            thread.sleep(0.02)
+            ch = tcp.recv(conn, 1)
 
     var content_length = 0
     var chunked = false
-    while true:
-        if _check_timeout(_start, _timeout_ms):
-            tcp.close(conn)
-            return ""
+    while not _check_timeout(_start, _timeout_ms):
         var hdr = ""
         ch = tcp.recv(conn, 1)
-        while ch != "\n":
-            if _check_timeout(_start, _timeout_ms):
-                tcp.close(conn)
-                return ""
+        while ch == "" and not _check_timeout(_start, _timeout_ms):
+            thread.sleep(0.02)
+            ch = tcp.recv(conn, 1)
+        while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
             hdr = hdr + ch
             ch = tcp.recv(conn, 1)
+            while ch == "" and not _check_timeout(_start, _timeout_ms):
+                thread.sleep(0.02)
+                ch = tcp.recv(conn, 1)
         hdr = strip(hdr)
         if hdr == "":
             break

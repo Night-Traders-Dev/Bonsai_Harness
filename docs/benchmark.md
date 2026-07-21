@@ -8,15 +8,18 @@ network dependency beyond the local Ollama daemon.
 
 Each category mirrors the style of a widely used LLM benchmark:
 
-| Category | Style | Measures | # tasks |
-|----------|-------|----------|---------|
-| `reasoning` | GSM8K | multi-step math word problems (exact numeric answer) | 5 |
-| `knowledge` | MMLU | multiple-choice factual questions | 5 |
-| `coding` | HumanEval / MBPP | predicting program output & code behavior | 5 |
-| `tool_use` | function-calling | choosing the correct tool for a request | 5 |
-| `instruction` | IFEval | following precise output constraints | 5 |
+| Category | Style / Benchmark | Domain | # tasks |
+|----------|-------------------|--------|---------|
+| `reasoning` | GSM8K / MATH / BBH | Multi-step math & logic | 15 |
+| `knowledge` | MMLU / MMLU-Pro | Factual STEM & humanities | 15 |
+| `coding` | HumanEval / MBPP | Output prediction & algorithms | 15 |
+| `tool_use` | Function-calling / BFCL | Tool selection & parameters | 15 |
+| `instruction` | IFEval | Strict format constraints | 15 |
+| `reading_comprehension` | DROP / SQuAD | Text comprehension Q&A | 15 |
+| `commonsense_reasoning` | HellaSwag / WinoGrande | Commonsense & physics | 15 |
+| `tool_compilation` | MiniCPM5 Intent | Deterministic JSON tool mapping | 17 |
 
-Total: **25 tasks**.
+Total: **122 tasks across 8 evaluation categories**.
 
 ## Task shape
 

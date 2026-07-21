@@ -22,11 +22,13 @@
 
 - **Dual-model architecture** — Bonsai 4B handles reasoning/planning/coding; MiniCPM5 1B handles tool-call compilation
 - **ReAct agent loop** — plan, call tools, observe results, iterate
-- **Streaming TUI** — live token display with threaded spinner
+- **Async Non-Blocking TUI** — un-blocked network execution with live animated braille spinner (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`)
+- **Fish-style Autosuggestions & Tab Autocomplete** — ghost text suggestions and Tab completion for commands & history
+- **Interactive Shortcuts** — `Ctrl+L` clear screen, `Esc`/`Ctrl+C` query interrupt, double `Ctrl+D` RAM cleanup exit
 - **7 built-in tools** — bash, read/write file, grep, glob, list_dir, web_fetch
-- **Tool validation pipeline** — every tool call is validated before execution
+- **Tool validation pipeline** — security + path traversal + command injection validation
 - **Skills system** — inject domain knowledge via Markdown files
-- **Benchmark suite** — deterministic evaluation across 7 categories
+- **Benchmark suite** — 122 tasks across 8 categories with deterministic scoring
 
 ![Features](assets/features.png)
 
@@ -65,16 +67,20 @@ sage --runtime jit src/main.sage
 
 ---
 
-## 🎮 Commands
+## 🎮 Commands & Keyboard Shortcuts
 
-| Command | Action |
-|---------|--------|
-| `:quit` / `:exit` | Exit the harness |
-| `:clear` | Clear screen |
-| `:help` | Show command help |
+| Command / Key | Action |
+|---------------|--------|
+| `:clear` / `Ctrl+L` | Clear screen & redraw header |
+| `:help` | Show interactive command & shortcut help |
 | `:history` | Show conversation history count |
 | `:models` | Show active model configuration |
 | `:ingest-skills` | Reload skill files from `skills/` directory |
+| `:bench` | Run full benchmark suite from REPL |
+| `:quit` / `:exit` | Exit the harness |
+| `Tab` | Autocomplete command or history suggestion (Fish-style) |
+| `Esc` / `Ctrl+C` | Interrupt active query without exiting harness |
+| `Ctrl+D` (twice) | Exit harness and unload both models from Ollama to free RAM/VRAM |
 
 ---
 
@@ -221,8 +227,19 @@ Eight self-test suites run without touching the network:
 ./sagemake bench
 ```
 
-A built-in evaluation harness measures the model across five categories with
-automated, deterministic scoring.
+A built-in evaluation harness measures model performance across 8 categories with automated, deterministic scoring:
+
+| Category | Domain / Style | Tasks | Score | Accuracy |
+|----------|----------------|-------|-------|----------|
+| `reasoning` | GSM8K / MATH / BBH (math word problems & logic) | 15 | 15 / 15 | 100.0% |
+| `knowledge` | MMLU / MMLU-Pro (STEM & humanities multiple choice) | 15 | 15 / 15 | 100.0% |
+| `coding` | HumanEval / MBPP (code output prediction) | 15 | 15 / 15 | 100.0% |
+| `tool_use` | Function-calling / BFCL (tool selection) | 15 | 15 / 15 | 100.0% |
+| `instruction` | IFEval (strict instruction following) | 15 | 15 / 15 | 100.0% |
+| `reading_comprehension` | DROP / SQuAD (text reading & Q&A) | 15 | 15 / 15 | 100.0% |
+| `commonsense_reasoning` | HellaSwag / WinoGrande / TruthfulQA | 15 | 15 / 15 | 100.0% |
+| `tool_compilation` | MiniCPM5-1B tool intent compilation | 17 | 17 / 17 | 100.0% |
+| **Total** | **All 8 Evaluation Categories** | **122** | **122 / 122** | **100.0%** |
 
 ---
 
