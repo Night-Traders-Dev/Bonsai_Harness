@@ -75,10 +75,10 @@ proc clear_screen():
     print_raw("\x1b[2J\x1b[H")
 
 proc show_header():
-    print_raw(CYAN + "╭──────────────────────────────────────────╮\n" + RESET)
-    print_raw(CYAN + "│ " + RESET + BOLD + "⚡ Bonsai Agent Harness" + RESET + "                  " + CYAN + "│\n" + RESET)
-    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai 4B + MiniCPM5" + RESET + "    " + CYAN + "│\n" + RESET)
-    print_raw(CYAN + "╰──────────────────────────────────────────╯\n" + RESET)
+    print_raw(CYAN + "╭──────────────────────────────────────────────╮\n" + RESET)
+    print_raw(CYAN + "│ " + RESET + BOLD + "⚡ Bonsai Agent Harness" + RESET + "                      " + CYAN + "│\n" + RESET)
+    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai 4B + MiniCPM5" + RESET + "        " + CYAN + "│\n" + RESET)
+    print_raw(CYAN + "╰──────────────────────────────────────────────╯\n" + RESET)
 
 proc print_banner():
     clear_screen()
@@ -162,18 +162,27 @@ proc print_tool_result(result):
     if n > 12:
         for i in range(6):
             print_raw(GRAY + "  │ " + RESET)
-            print_raw(lines[i])
+            var ltext = lines[i]
+            if len(ltext) > 74:
+                ltext = slice(ltext, 0, 71) + "..."
+            print_raw(ltext)
             print_nl()
         print_raw(GRAY + "  │ ... (" + str(n) + " lines)" + RESET)
         print_nl()
         for i in range(n - 6, n):
             print_raw(GRAY + "  │ " + RESET)
-            print_raw(lines[i])
+            var ltext = lines[i]
+            if len(ltext) > 74:
+                ltext = slice(ltext, 0, 71) + "..."
+            print_raw(ltext)
             print_nl()
     else:
         for i in range(n):
             print_raw(GRAY + "  │ " + RESET)
-            print_raw(lines[i])
+            var ltext = lines[i]
+            if len(ltext) > 74:
+                ltext = slice(ltext, 0, 71) + "..."
+            print_raw(ltext)
             print_nl()
 
 var input_history = []
@@ -243,6 +252,10 @@ proc get_input():
         return ":quit-unload"
 
     eof_count = 0
+
+    if contains(line, "\x03") or contains(line, "\x1b"):
+        print_raw(YELLOW + "^C\n" + RESET)
+        return ""
 
     if contains(line, "\x0c"):
         clear_screen()

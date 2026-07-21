@@ -205,11 +205,14 @@ def cmd_run(args):
 
     step(f"executing: {' '.join(cmd)}")
     print()
+    import signal
+    old_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         subprocess.run(cmd, cwd=ROOT, env=env)
-    except KeyboardInterrupt:
-        print()
-        step_warn("interrupted")
+    except Exception as e:
+        step_warn(f"error: {e}")
+    finally:
+        signal.signal(signal.SIGINT, old_handler)
 
 
 def cmd_test(args):
