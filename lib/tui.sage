@@ -243,7 +243,7 @@ proc get_input():
     print_raw(BOLD + "> " + RESET)
     let line = input()
 
-    if line == nil:
+    if line == nil or line == "\x04":
         eof_count = eof_count + 1
         if eof_count == 1:
             print_raw(DIM + " (Press Ctrl+D again to exit & unload RAM)\n" + RESET)

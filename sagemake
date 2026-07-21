@@ -173,19 +173,18 @@ def cmd_compile(args):
         jit_bin = None
 
     step("creating run script")
+    run_script = ROOT / BINARY_NAME
+    wrapper_code = (ROOT / "src" / "tui_wrapper.py").read_text()
+    
     if jit_bin:
-        run_script = ROOT / BINARY_NAME
-        run_script.write_text(
-            f"#!/bin/sh\n"
-            f'export SAGE_PATH="{ROOT}:{LIB_DIR}:${{SAGE_PATH:-}}"\n'
-            f'exec "{jit_bin}" "$@"\n'
-        )
+        wrapper_code = wrapper_code.replace('os.path.join(os.path.dirname(os.path.abspath(__file__)), "bonsai-harness.jit")', f'"{jit_bin}"')
     else:
-        run_script = ROOT / BINARY_NAME
-        run_script.write_text(
-            f"#!/bin/sh\n"
-            f'exec {SAGE} --runtime jit -I "{ROOT}" -I "{LIB_DIR}" "{ROOT / MAIN_SAGE}" "$@"\n'
-        )
+        # Prevent it from looking for the binary
+        wrapper_code = wrapper_code.replace('os.path.join(os.path.dirname(os.path.abspath(__file__)), "bonsai-harness.jit")', '""')
+        
+    wrapper_code = wrapper_code.replace('os.path.dirname(os.path.abspath(__file__))', f'"{ROOT}"')
+    
+    run_script.write_text(wrapper_code)
     run_script.chmod(0o755)
     step_ok(f"script at {run_script}")
 
