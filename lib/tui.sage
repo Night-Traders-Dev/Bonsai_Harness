@@ -77,7 +77,7 @@ proc clear_screen():
 proc show_header():
     print_raw(CYAN + "╭──────────────────────────────────────────────╮\n" + RESET)
     print_raw(CYAN + "│ " + RESET + BOLD + "⚡ Bonsai Agent Harness" + RESET + "                      " + CYAN + "│\n" + RESET)
-    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai 4B + MiniCPM5" + RESET + "        " + CYAN + "│\n" + RESET)
+    print_raw(CYAN + "│ " + RESET + DIM + "SageLang + Ollama + Bonsai 4B + MiniCPM5" + RESET + "     " + CYAN + "│\n" + RESET)
     print_raw(CYAN + "╰──────────────────────────────────────────────╯\n" + RESET)
 
 proc print_banner():
@@ -257,7 +257,7 @@ proc get_input():
         print_raw(YELLOW + "^C\n" + RESET)
         return ""
 
-    if contains(line, "\x0c"):
+    if contains(line, "\x0c") or strip(line) == ":clear" or strip(line) == ":c" or strip(line) == ":cl":
         clear_screen()
         show_header()
         return ""
