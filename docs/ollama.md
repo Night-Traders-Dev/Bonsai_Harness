@@ -22,7 +22,7 @@ switching between models mid-session:
 
 ```sage
 ollama.set_model("hf.co/prism-ml/Bonsai-4B-gguf:Q1_0")  # Bonsai
-ollama.set_model("minicpm5-1b")                           # MiniCPM
+ollama.set_model("hf.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF:Q8_0")  # MiniCPM
 ```
 
 This is used by `lib/model_provider.sage` to switch between the primary

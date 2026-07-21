@@ -4,7 +4,7 @@ import lib.model_config as cfg
 import lib.tool_validator as validator
 import json
 
-let TOOL_COMPILER_PROMPT = "You are the Bonsai Tool Compiler.\n\nYour only task is to convert the supplied tool intent into exactly one valid tool call.\n\nDo not explain your reasoning.\n\nDo not answer the user.\n\nDo not invent tools.\n\nDo not add any text before or after the JSON output.\n\nReturn only the required structured tool call as a JSON object with 'name' and 'arguments' fields."
+let TOOL_COMPILER_PROMPT = "You are the Bonsai Tool Compiler.\n\nYour only task is to convert the supplied tool intent into exactly one valid tool call.\n\nDo not explain your reasoning. Do not answer the user. Do not invent tools. Do not add any text before or after the JSON output.\n\nReturn ONLY valid JSON with exactly this shape using the actual tool name and actual argument names from the Available Tools list:\n{\"name\":\"EXACT_TOOL_NAME\",\"arguments\":{\"EXACT_ARG_NAME\":\"VALUE\"}}"
 
 proc build_compiler_prompt(intent, tool_defs):
     var prompt = TOOL_COMPILER_PROMPT + "\n\nAvailable Tools:\n"

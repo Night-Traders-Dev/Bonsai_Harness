@@ -4,7 +4,7 @@ import lib.tool_validator as validator
 import lib.tools as tools
 import json
 
-# Benchmark suite for the Bonsai harness model.
+# Benchmark suite for the dual-model agent harness (Bonsai 4B + MiniCPM5).
 #
 # Categories mirror the styles of widely used LLM evaluations used by
 # frontier models (GPT-4, Claude, Gemini, Llama, DeepSeek, etc.):
@@ -17,8 +17,9 @@ import json
 #   commonsense_reasoning  -> HellaSwag / WinoGrande / TruthfulQA
 #
 # Each task has automated, deterministic scoring so the whole suite can
-# run without a human grader.  Models tested include Bonsai-27B (1-bit quant)
-# and any model served through Ollama.
+# run without a human grader.  Models tested include Bonsai-4B (1-bit quant)
+# as the primary model and MiniCPM5-1B as the tool compiler, but any model
+# served through Ollama can be used.
 
 # ──────────────────────────────────────────────
 # reasoning — GSM8K / BBH / MATH style

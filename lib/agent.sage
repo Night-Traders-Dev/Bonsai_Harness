@@ -4,13 +4,14 @@ import lib.tool_compiler as compiler
 import lib.tool_validator as validator
 import lib.tools as tools
 import lib.model_config as cfg
+import io
 import json
 
 let MAX_ITERATIONS = 6
 let MAX_HISTORY_CHARS = 8000
-let MAX_TOOL_RETRIES = 2
+let MAX_TOOL_RETRIES = 1
 
-let SYSTEM_PROMPT = "You are Bonsai, an AI assistant running in a Linux environment. You have access to tools you can use to help the user.\n\nAvailable tools: bash, read_file, write_file, grep, glob, list_dir, web_fetch\n\nWhen you need information, call the appropriate tool. When you have enough information, provide a complete answer.\n\nRULES:\n- Use tools when you need information\n- Be thorough - check files, run commands, verify facts\n- Provide complete, helpful responses\n- ALWAYS explain your reasoning step by step before calling a tool. Show what you're thinking and why.\n- State your intent clearly before each tool use."
+let SYSTEM_PROMPT = "You are Bonsai, an AI assistant running in a Linux environment. You have access to tools you can use to help the user.\n\nAvailable tools: bash, read_file, write_file, grep, glob, list_dir, web_fetch\n\nWhen you need information, call the appropriate tool. When you have enough information, provide a complete answer.\n\nRULES:\n- Use tools when you need information, but limit to 2-3 calls and then finalize\n- Use EXACT paths from tool results — never invent or guess file paths\n- When a tool returns a file list, use those exact filenames in subsequent calls\n- Provide complete, helpful responses\n- ALWAYS explain your reasoning step by step before calling a tool. Show what you're thinking and why.\n- State your intent clearly before each tool use."
 
 proc trim_history(history):
     if len(history) <= 2:
@@ -75,7 +76,10 @@ proc parse_text_tool_call(content):
             if len(args_str) > 0:
                 let parsed = json.cJSON_Parse(args_str)
                 if parsed != nil:
-                    result["arguments"] = parsed
+                    var args_dict = {}
+                    _cjson_into_dict(parsed, args_dict)
+                    result["arguments"] = args_dict
+                    json.cJSON_Delete(parsed)
                 else:
                     result["arguments"] = args_str
         elif startswith(upper_line, "FINAL:"):
@@ -93,7 +97,9 @@ proc parse_text_tool_call(content):
                     if raw_name != nil:
                         result["has_tool_call"] = true
                         result["name"] = "" + raw_name
-                        result["arguments"] = args_node
+                        var args_dict = {}
+                        _cjson_into_dict(args_node, args_dict)
+                        result["arguments"] = args_dict
                 json.cJSON_Delete(parsed)
     return result
 
@@ -135,6 +141,15 @@ proc handle_tool_call(tc_name, tc_args_raw, history, on_tool_call):
     if on_tool_call != nil:
         on_tool_call(tc_name, tc_args)
 
+    if tc_name == "read_file" and dict_has(tc_args, "path"):
+        let p = tc_args["path"]
+        if p != nil and not io.exists(p):
+            let result = "Error: File not found: " + p + ". Use list_dir to find valid paths."
+            push(history, build_tool_result_entry(tc_name, result))
+            if on_tool_call != nil:
+                on_tool_call("result", "file not found")
+            return history
+
     let result = tools.execute_tool(tc_name, tc_args)
     push(history, build_tool_result_entry(tc_name, result))
 
@@ -170,6 +185,13 @@ proc run_agent(user_input, history, on_token, on_tool_call, on_final):
 
     for iter in range(MAX_ITERATIONS):
         trim_history(history)
+
+        if iter >= 4:
+            let reminder = {}
+            reminder["role"] = "user"
+            reminder["content"] = "You have enough information now. Provide your FINAL answer — do not call more tools."
+            push(history, reminder)
+
         var response = {}
 
         provider.use_primary()
