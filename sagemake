@@ -220,6 +220,10 @@ def cmd_test(args):
         ROOT / "tests" / "test_tools.sage",
         ROOT / "tests" / "test_skills.sage",
         ROOT / "tests" / "test_benchmark.sage",
+        ROOT / "tests" / "test_model_router.sage",
+        ROOT / "tests" / "test_tool_compiler.sage",
+        ROOT / "tests" / "test_tool_validator.sage",
+        ROOT / "tests" / "test_agent_loop.sage",
     ]
     errors = 0
     for script in test_suites:
