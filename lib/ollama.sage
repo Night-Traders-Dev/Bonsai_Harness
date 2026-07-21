@@ -5,7 +5,7 @@ import sys
 import lib.tui as tui
 
 var current_model = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
-var current_host = "localhost"
+var current_host = "127.0.0.1"
 var current_port = 11434
 var _timeout_ms = 60000
 let CONNECTION_POOL = {}

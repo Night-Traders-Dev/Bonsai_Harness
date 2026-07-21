@@ -4,7 +4,7 @@ let ROLE_TOOL_COMPILER = "tool_compiler"
 let MODEL_BONSAI = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
 let MODEL_MINICPM = "hf.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-V2-Thinking-GGUF:Q8_0"
 
-let DEFAULT_OLLAMA_HOST = "localhost"
+let DEFAULT_OLLAMA_HOST = "127.0.0.1"
 let DEFAULT_OLLAMA_PORT = 11434
 
 let MAX_TOOL_COMPILER_RETRIES = 2
