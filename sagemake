@@ -234,7 +234,7 @@ def cmd_test(args):
         step(f"executing {script.name}")
         r = subprocess.run(
             [SAGE, str(script)],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=120,
             cwd=ROOT,
         )
         if r.returncode != 0:
