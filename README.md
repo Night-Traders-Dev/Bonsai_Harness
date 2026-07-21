@@ -2,7 +2,7 @@
 
 # 🤖 Bonsai Agent Harness
 
-**Bonsai-4B + Ollama + SageLang — A ReAct agent with tools, streaming, and TUI**
+**Dual-Model Agent Architecture — Bonsai 4B + MiniCPM5 1B + Ollama + SageLang**
 
 <!-- PROJECT VERSION BADGES -->
 [![SageLang](https://img.shields.io/badge/SageLang-4.1.0-7C3AED?style=flat-square&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMTYgMTggMjIgMTIgMTYgNiIvPjxwb2x5bGluZSBwb2ludHM9IjggNiAyIDEyIDggMTgiLz48L3N2Zz4=)](https://github.com/Night-Traders-Dev/SageLang)
@@ -20,6 +20,14 @@
 
 ## ✨ Features
 
+- **Dual-model architecture** — Bonsai 4B handles reasoning/planning/coding; MiniCPM5 1B handles tool-call compilation
+- **ReAct agent loop** — plan, call tools, observe results, iterate
+- **Streaming TUI** — live token display with threaded spinner
+- **7 built-in tools** — bash, read/write file, grep, glob, list_dir, web_fetch
+- **Tool validation pipeline** — every tool call is validated before execution
+- **Skills system** — inject domain knowledge via Markdown files
+- **Benchmark suite** — deterministic evaluation across 7 categories
+
 ![Features](assets/features.png)
 
 ---
@@ -31,6 +39,7 @@
 | SageLang | ≥ 4.1.0 | `git clone https://github.com/Night-Traders-Dev/SageLang && cd SageLang && sudo ./sagemake --install --skip-tests` |
 | Ollama | ≥ 0.32.1 | `curl -fsSL https://ollama.com/install.sh \| sh` |
 | Bonsai-4B | Q1_0 | `ollama pull hf.co/prism-ml/Bonsai-4B-gguf:Q1_0` |
+| MiniCPM5-1B (optional) | F16 | `ollama pull minicpm5-1b` |
 
 ---
 
@@ -44,8 +53,9 @@ cd Bonsai_Harness
 # 2. Start Ollama (if not already running)
 ollama serve
 
-# 3. Pull the model
-ollama pull hf.co/prism-ml/Bonsai-27B-gguf:Q1_0
+# 3. Pull the models
+ollama pull hf.co/prism-ml/Bonsai-4B-gguf:Q1_0
+ollama pull minicpm5-1b
 
 # 4. Launch the harness
 ./sagemake run
@@ -63,6 +73,7 @@ sage --runtime jit src/main.sage
 | `:clear` | Clear screen |
 | `:help` | Show command help |
 | `:history` | Show conversation history count |
+| `:models` | Show active model configuration |
 | `:ingest-skills` | Reload skill files from `skills/` directory |
 
 ---
@@ -73,17 +84,79 @@ sage --runtime jit src/main.sage
 
 ### 📦 Module Map
 
-| Module | Role | Key Procs | Docs |
-|--------|------|-----------|------|
-| `src/main` | Entry point / REPL | `process_input`, `on_token`, `on_tool_call`, `on_final` | [main.md](docs/main.md) |
-| `lib.agent` | Agent loop | `run_agent`, `init_history`, `parse_text_tool_call` | [agent.md](docs/agent.md) |
-| `lib.ollama` | Ollama API | `chat`, `chat_simple`, `ask`, `answer_text`, `build_request` | [ollama.md](docs/ollama.md) |
-| `lib.tools` | Tool system | `register_tool`, `execute_tool`, `get_tool_list` | [tools.md](docs/tools.md) |
-| `lib.tui` | Terminal UI | `print_banner`, `print_user_msg`, `print_token`, `print_tool_call` | [tui.md](docs/tui.md) |
-| `lib.skills` | Skills system | `load_skills`, `parse_frontmatter`, `get_skills_meta`, `get_skills_content` | [skills.md](docs/skills.md) |
-| `lib.benchmark` | Eval suite | `get_categories`, `get_tasks`, `score`, `query_model` | [benchmark.md](docs/benchmark.md) |
-| `lib.http_client` | HTTP | `http_post`, `http_post_raw`, `read_line` | [http_client.md](docs/http_client.md) |
-| `sagemake` | Build system | `cmd_build`, `cmd_run`, `cmd_test`, `cmd_bench` | [sagemake.md](docs/sagemake.md) |
+| Module | Role | Key Procs |
+|--------|------|-----------|
+| `src/main` | Entry point / REPL | `process_input`, `on_token`, `on_tool_call`, `on_final` |
+| `lib.agent` | Dual-model ReAct loop | `run_agent`, `compile_via_minicpm`, `handle_tool_call` |
+| `lib.model_provider` | Model abstraction | `use_primary`, `use_tool_compiler`, `chat`, `ask` |
+| `lib.model_config` | Model definitions | `get_model_for_role`, `set_model_for_role` |
+| `lib.model_router` | Task routing | `route_task` — maps task types to model roles |
+| `lib.tool_compiler` | MiniCPM tool compilation | `compile_tool_call`, `extract_intent_from_bonsai` |
+| `lib.tool_validator` | Tool call validation | `validate_tool_call` — security + schema checks |
+| `lib.ollama` | Ollama API client | `chat`, `ask`, `set_model`, `build_request` |
+| `lib.tools` | Tool registry | `register_tool`, `execute_tool`, `get_tool_list` |
+| `lib.tui` | Terminal UI | `print_banner`, `print_user_msg`, `print_token`, `print_tool_call` |
+| `lib.skills` | Skills system | `load_skills`, `parse_frontmatter`, `get_skills_meta`, `get_skills_content` |
+| `lib.benchmark` | Eval suite | `get_categories`, `get_tasks`, `score`, `query_model` |
+| `lib.http_client` | HTTP | `http_post`, `http_post_raw`, `read_line` |
+| `models/` | Model configs | `bonsai.sage`, `minicpm.sage` |
+
+---
+
+## 🧠 Dual-Model Architecture
+
+```
+                    User
+                      │
+                      ▼
+             ┌─────────────────┐
+             │   Bonsai 4B     │
+             │    1-bit        │
+             │                 │
+             │ Primary Agent   │
+             │ Reasoning       │
+             │ Planning        │
+             │ Coding          │
+             └────────┬────────┘
+                      │
+                 Tool Intent
+                      │
+                      ▼
+             ┌─────────────────┐
+             │   MiniCPM5      │
+             │    1B F16       │
+             │                 │
+             │ Tool Compiler   │
+             │ Tool Selection  │
+             │ Structured JSON │
+             └────────┬────────┘
+                      │
+                      ▼
+             ┌─────────────────┐
+             │ Tool Validator  │
+             └────────┬────────┘
+                      │
+                      ▼
+             ┌─────────────────┐
+             │   Tool Runtime  │
+             └────────┬────────┘
+                      │
+                 Tool Result
+                      │
+                      ▼
+             ┌─────────────────┐
+             │   Bonsai 4B     │
+             │                 │
+             │ Observe         │
+             │ Reason          │
+             │ Re-plan         │
+             └────────┬────────┘
+                      │
+                      ▼
+                    User
+```
+
+**Bonsai 4B (1-bit)** handles reasoning, planning, coding, analysis, and final synthesis. **MiniCPM5 1B (F16)** specializes in converting natural-language intents into precise structured tool calls. A validation layer ensures every tool call is safe before execution.
 
 ---
 
@@ -94,10 +167,9 @@ Detailed, per-component documentation lives in [`docs/`](docs/). Start with the
 
 | Document | Covers |
 |----------|--------|
-| [architecture.md](docs/architecture.md) | System design, the ReAct loop, data flow, concurrency, generation tuning |
-| [main.md](docs/main.md) | `src/main.sage` — REPL, commands, callback wiring |
-| [agent.md](docs/agent.md) | `lib/agent.sage` — ReAct loop, history, tool-call parsing |
-| [ollama.md](docs/ollama.md) | `lib/ollama.sage` — streaming + one-shot chat, response codec, options |
+| [architecture.md](docs/architecture.md) | Dual-model system design, data flow, model routing |
+| [agent.md](docs/agent.md) | `lib/agent.sage` — dual-model ReAct loop, tool compilation pipeline |
+| [ollama.md](docs/ollama.md) | `lib/ollama.sage` — configurable model, streaming + one-shot |
 | [tools.md](docs/tools.md) | `lib/tools.sage` — registry + the 7 built-in tools |
 | [tui.md](docs/tui.md) | `lib/tui.sage` — ANSI rendering, threaded spinner |
 | [skills.md](docs/skills.md) | `lib/skills.sage` + `skills/` — skills system & authoring |
@@ -105,57 +177,6 @@ Detailed, per-component documentation lives in [`docs/`](docs/). Start with the
 | [http_client.md](docs/http_client.md) | `lib/http_client.sage` — generic HTTP POST client |
 | [sagemake.md](docs/sagemake.md) | `sagemake` — build/run/test/bench/install |
 | [testing.md](docs/testing.md) | `tests/` — the three self-test suites |
-
----
-
-## 🧠 Skills System
-
-Skills are Markdown files that teach the agent *how* to perform a task well.
-They are loaded on startup and appended to the system prompt under a
-`=== Loaded Skills ===` header. Reload at any time with `:ingest-skills`
-without restarting the harness.
-
-### Format
-
-Each skill follows the open `SKILL.md` convention: **YAML frontmatter**
-(`name` + `description` with clear triggers) followed by concise,
-atomic instructions. Two layouts are supported:
-
-```
-skills/
-├── code-review/
-│   └── SKILL.md      # folder-based skill (recommended)
-└── quick-note.md     # single-file skill
-```
-
-```markdown
----
-name: code-review
-description: Review code for bugs and security issues. Use when the user asks for a code review.
----
-
-# Code Review
-1. Read the changed files fully.
-2. Check for correctness, security, error handling, performance, clarity.
-3. Group findings by severity: Critical, Warning, Suggestion.
-```
-
-The loader parses the frontmatter (so raw YAML never leaks into the
-prompt), uses the `description` as trigger guidance for the model, and
-falls back to the filename when no `name` is given.
-
-### Shipped skills
-
-| Skill | Triggers on |
-|-------|-------------|
-| `code-review` | reviewing code for bugs, security, best practices |
-| `debugging` | diagnosing errors, crashes, failing tests |
-| `git-commit` | writing conventional commit messages, committing safely |
-| `test-writing` | adding tests, improving coverage |
-| `refactoring` | cleaning up / restructuring code without changing behavior |
-| `shell-safety` | running shell commands without destructive side effects |
-| `web-research` | gathering accurate up-to-date info from the web |
-| `documentation` | writing READMEs, docstrings, code comments |
 
 ---
 
@@ -169,36 +190,7 @@ falls back to the filename when no `name` is given.
 | `grep` | Regex search in files | `pattern`, `path` (optional) |
 | `glob` | Find files by glob pattern | `pattern` (string) |
 | `list_dir` | List directory contents | `path` (optional, default: `.`) |
-| `web_fetch` | Fetch URL (HTTP) | `url` (string) |
-
----
-
-## 📊 Benchmark Suite
-
-A built-in evaluation harness measures the model across five categories,
-each mirroring the style of a widely used LLM benchmark, with
-**automated, deterministic scoring** (no human grader needed):
-
-| Category | Style | What it measures |
-|----------|-------|------------------|
-| `reasoning` | GSM8K | multi-step math word problems (exact numeric answer) |
-| `knowledge` | MMLU | multiple-choice factual questions |
-| `coding` | HumanEval / MBPP | predicting program output & code behavior |
-| `tool_use` | function-calling | choosing the correct tool for a request |
-| `instruction` | IFEval | following precise output constraints |
-
-Run it against your local model:
-
-```bash
-./sagemake bench
-# or directly:
-sage bench/run_bench.sage
-```
-
-Each task is scored by a matcher (`number`, `choice`, `contains`,
-`exact_word`) defined in `lib/benchmark.sage`. The runner prints a
-per-category pass rate and an overall score. Add or edit tasks by
-extending the `_tasks_*` procs in `lib/benchmark.sage`.
+| `web_fetch` | Fetch URL (HTTP only) | `url` (string) |
 
 ---
 
@@ -218,32 +210,28 @@ Three self-test suites run without touching the network:
 
 ---
 
-## 🔧 Build System
-
-The `sagemake` script provides a complete build/run workflow:
+## 📊 Benchmark Suite
 
 ```bash
-./sagemake build      # Syntax check + lint
-./sagemake compile    # JIT-packaged binary (sage --jit src/main.sage -o bonsai-harness)
-./sagemake run        # Launch with JIT profiling
-./sagemake test       # Run self-tests (tools + skills + benchmark)
-./sagemake bench      # Run the model benchmark suite
-./sagemake install    # Copy binary to /usr/local/bin
-./sagemake clean      # Remove artifacts
+./sagemake bench
 ```
+
+A built-in evaluation harness measures the model across five categories with
+automated, deterministic scoring.
 
 ---
 
-## 🧠 Architecture
+## 🔧 Build System
 
-![Architecture Diagram](assets/bonsai.png)
-
-The agent follows a **ReAct** (Reasoning + Acting) loop:
-
-1. Send conversation history + tool definitions to Ollama
-2. Parse response for tool calls or final answer
-3. If tool call → execute tool → append result to history → repeat
-4. If final answer → display to user → end
+```bash
+./sagemake build      # Syntax check + lint
+./sagemake compile    # JIT-packaged binary
+./sagemake run        # Launch with JIT profiling
+./sagemake test       # Run self-tests
+./sagemake bench      # Run benchmark suite
+./sagemake install    # Copy binary to /usr/local/bin
+./sagemake clean      # Remove artifacts
+```
 
 ---
 

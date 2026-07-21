@@ -2,9 +2,9 @@
 
 This directory contains detailed, per-component documentation for the Bonsai
 Agent Harness — a [SageLang](https://github.com/Night-Traders-Dev/SageLang)
-program that turns the **Bonsai-4B** model (served locally by **Ollama**) into
-a tool-using [ReAct](https://arxiv.org/abs/2210.03629) agent with a streaming
-terminal UI, a skills system, and a self-contained benchmark suite.
+program that implements a **dual-model agent architecture**: **Bonsai 4B 1-bit**
+for reasoning, planning, and coding, with **MiniCPM5 1B F16** as a specialized
+tool-call compiler (served locally by **Ollama**).
 
 Every source file in the project has a corresponding document here. Each
 document explains **what the component does**, **how it works internally**,
@@ -15,10 +15,10 @@ document explains **what the component does**, **how it works internally**,
 
 | Document | Component | Summary |
 |----------|-----------|---------|
-| [architecture.md](architecture.md) | Whole system | High-level design, the ReAct loop, data flow, threading, and how the pieces fit together. |
+| [architecture.md](architecture.md) | Whole system | High-level design, dual-model routing, the ReAct loop, data flow, and how the pieces fit together. |
 | [main.md](main.md) | `src/main.sage` | The entry point: REPL loop, slash-command dispatch, callback wiring. |
-| [agent.md](agent.md) | `lib/agent.sage` | The ReAct agent loop, history management, tool-call parsing, system prompt. |
-| [ollama.md](ollama.md) | `lib/ollama.sage` | Ollama HTTP client: request building, streaming + non-streaming chat, response parsing, generation options. |
+| [agent.md](agent.md) | `lib/agent.sage` | The dual-model ReAct agent loop, history management, tool compilation pipeline. |
+| [ollama.md](ollama.md) | `lib/ollama.sage` | Ollama HTTP client: configurable model, streaming + non-streaming chat, response parsing, generation options. |
 | [tools.md](tools.md) | `lib/tools.sage` | The tool registry and the seven built-in tools. |
 | [tui.md](tui.md) | `lib/tui.sage` | Terminal UI: ANSI styling, the threaded spinner, streaming token rendering. |
 | [skills.md](skills.md) | `lib/skills.sage` + `skills/` | The skills system, `SKILL.md` format, frontmatter parser, authoring guide. |

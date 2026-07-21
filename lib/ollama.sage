@@ -3,12 +3,24 @@ import tcp
 import strings
 import lib.tui as tui
 
-let DEFAULT_MODEL = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
-let OLLAMA_HOST = "localhost"
-let OLLAMA_PORT = 11434
+var current_model = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
+var current_host = "localhost"
+var current_port = 11434
 let CONNECTION_POOL = {}
 let CONNECTION_EXPIRY = 60000
 let last_activity = 0
+
+proc set_model(name):
+    current_model = name
+
+proc get_model():
+    return current_model
+
+proc set_host(host):
+    current_host = host
+
+proc set_port(port):
+    current_port = port
 
 proc get_timestamp():
     import sys
@@ -19,27 +31,27 @@ proc get_connection():
     let time_since_last = now - last_activity
     
     if time_since_last > CONNECTION_EXPIRY:
-        let conn = CONNECTION_POOL[OLLAMA_HOST]
+        let conn = CONNECTION_POOL[current_host]
         if conn != nil and conn != "":
             tcp.close(conn)
-            CONNECTION_POOL[OLLAMA_HOST] = ""
+            CONNECTION_POOL[current_host] = ""
     
-    if dict_has(CONNECTION_POOL, OLLAMA_HOST):
-        let conn = CONNECTION_POOL[OLLAMA_HOST]
+    if dict_has(CONNECTION_POOL, current_host):
+        let conn = CONNECTION_POOL[current_host]
         if conn != nil and conn != "":
             last_activity = now
             return conn
     
-    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
-    CONNECTION_POOL[OLLAMA_HOST] = conn
+    let conn = tcp.connect(current_host, current_port)
+    CONNECTION_POOL[current_host] = conn
     last_activity = now
     return conn
 
 proc release_connection(conn):
-    let existing = CONNECTION_POOL[OLLAMA_HOST]
+    let existing = CONNECTION_POOL[current_host]
     if existing != nil and existing != "":
         tcp.close(existing)
-        CONNECTION_POOL[OLLAMA_HOST] = ""
+        CONNECTION_POOL[current_host] = ""
         last_activity = 0
 
 # Generation options. Kept as one JSON fragment so both the streaming and
@@ -105,7 +117,7 @@ proc build_tools_json(tools):
     return ",\"tools\":[" + join(tool_parts, ",") + "]"
 
 proc build_request(messages, tools, stream):
-    let body = "{\"model\":\"" + json_escape(DEFAULT_MODEL) + "\""
+    let body = "{\"model\":\"" + json_escape(current_model) + "\""
     body = body + ",\"messages\":" + build_messages_json(messages)
     body = body + build_tools_json(tools)
     body = body + ",\"stream\":" + str(stream)
@@ -258,9 +270,9 @@ proc send_and_stream(messages, tools, on_token, on_done):
 
     let body_str = build_request(messages, tools, true)
 
-    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
+    let conn = tcp.connect(current_host, current_port)
     let req = "POST /api/chat HTTP/1.1\r\n"
-    req = req + "Host: " + OLLAMA_HOST + ":" + str(OLLAMA_PORT) + "\r\n"
+    req = req + "Host: " + current_host + ":" + str(current_port) + "\r\n"
     req = req + "Content-Type: application/json\r\n"
     req = req + "Content-Length: " + str(len(body_str)) + "\r\n"
     req = req + "Accept: application/x-ndjson\r\n"
@@ -390,10 +402,10 @@ proc send_and_stream(messages, tools, on_token, on_done):
     return final_body
 
 proc unload_model():
-    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
-    let body = "{\"model\":\"" + json_escape(DEFAULT_MODEL) + "\",\"keep_alive\":0}"
+    let conn = tcp.connect(current_host, current_port)
+    let body = "{\"model\":\"" + json_escape(current_model) + "\",\"keep_alive\":0}"
     let req = "POST /api/generate HTTP/1.1\r\n"
-    req = req + "Host: " + OLLAMA_HOST + ":" + str(OLLAMA_PORT) + "\r\n"
+    req = req + "Host: " + current_host + ":" + str(current_port) + "\r\n"
     req = req + "Content-Type: application/json\r\n"
     req = req + "Content-Length: " + str(len(body)) + "\r\n"
     req = req + "Connection: close\r\n\r\n"
@@ -421,13 +433,13 @@ proc send_once(messages, tools):
     let body_str = build_request(messages, tools, false)
 
     var req = "POST /api/chat HTTP/1.1\r\n"
-    req = req + "Host: " + OLLAMA_HOST + ":" + str(OLLAMA_PORT) + "\r\n"
+    req = req + "Host: " + current_host + ":" + str(current_port) + "\r\n"
     req = req + "Content-Type: application/json\r\n"
     req = req + "Content-Length: " + str(len(body_str)) + "\r\n"
     req = req + "Connection: close\r\n\r\n"
     req = req + body_str
 
-    let conn = tcp.connect(OLLAMA_HOST, OLLAMA_PORT)
+    let conn = tcp.connect(current_host, current_port)
     tcp.send(conn, req)
 
     var status_line = ""

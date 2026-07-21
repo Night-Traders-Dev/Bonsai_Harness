@@ -3,11 +3,15 @@ import lib.tools as tools
 import lib.tui as tui
 import lib.skills as skills
 import lib.ollama as ollama
+import lib.model_provider as provider
+import lib.model_config as cfg
 import sys
 
 let skills_dir = "skills"
 var history = agent.init_history_with_skills(skills.load_skills(skills_dir))
 var running = true
+
+provider.use_primary()
 
 proc on_token(tok):
     tui.print_token(tok)
@@ -16,6 +20,8 @@ proc on_tool_call(name, args):
     tui.print_assistant_footer()
     if name == "result":
         tui.print_tool_result(args)
+    elif name == "error":
+        tui.print_tool_call("COMPILER ERROR", args)
     else:
         tui.print_tool_call(name, args)
 
@@ -28,7 +34,7 @@ proc process_input(line):
     let trimmed = strip(line)
 
     if trimmed == ":quit" or trimmed == ":exit":
-        ollama.unload_model()
+        provider.unload_current()
         return false
 
     if trimmed == ":clear":
@@ -51,6 +57,12 @@ proc process_input(line):
         tui.print_assistant_footer()
         return true
 
+    if trimmed == ":models":
+        print "Primary: " + cfg.MODEL_BONSAI
+        print "Tool Compiler: " + cfg.MODEL_MINICPM
+        print "Current: " + provider.get_current_model()
+        return true
+
     if trimmed == "":
         return true
 
@@ -67,6 +79,6 @@ while running:
     let line = tui.get_input()
     running = process_input(line)
 
-ollama.unload_model()
+provider.unload_current()
 print ""
 print "Goodbye!"
