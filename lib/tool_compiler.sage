@@ -4,7 +4,7 @@ import lib.model_config as cfg
 import lib.tool_validator as validator
 import json
 
-let TOOL_COMPILER_PROMPT = "You are the Bonsai Tool Compiler.\n\nYour only task is to convert the supplied tool intent into exactly one valid tool call.\n\nDo not explain your reasoning. Do not answer the user. Do not invent tools. Do not add any text before or after the JSON output.\n\nReturn ONLY valid JSON with exactly this shape using the actual tool name and actual argument names from the Available Tools list:\n{\"name\":\"EXACT_TOOL_NAME\",\"arguments\":{\"EXACT_ARG_NAME\":\"VALUE\"}}"
+let TOOL_COMPILER_PROMPT = "You are the Bonsai Tool Compiler.\n\nYour only task is to convert the supplied tool intent into exactly one valid tool call.\n\nDo not explain your reasoning. Do not answer the user. Do not invent tools. Do not add any text before or after the JSON output.\n\nOutput exactly:\n{\"name\":\"tool_name\",\"arguments\":{\"arg1\":\"value1\"}}\n\nReplace tool_name and arg1/value1 with actual values from the Available Tools list. Keep the exact same JSON structure."
 
 proc build_compiler_prompt(intent, tool_defs):
     var prompt = TOOL_COMPILER_PROMPT + "\n\nAvailable Tools:\n"
@@ -12,7 +12,6 @@ proc build_compiler_prompt(intent, tool_defs):
         prompt = prompt + "\n- " + t["name"] + ": " + t["description"]
         prompt = prompt + "\n  Schema: " + t["parameters"]
     prompt = prompt + "\n\nTool Intent:\n" + intent
-    prompt = prompt + "\n\nOutput exactly one JSON tool call. Use the actual tool name and actual argument names from the Available Tools list — do NOT use placeholder names or generic values.\n\nCorrect format:\n{\"name\":\"<tool>\",\"arguments\":{<args>}}"
     return prompt
 
 proc extract_json_from_text(text):

@@ -11,7 +11,7 @@ let MAX_ITERATIONS = 6
 let MAX_HISTORY_CHARS = 8000
 let MAX_TOOL_RETRIES = 1
 
-let SYSTEM_PROMPT = "You are Bonsai, an AI assistant running in a Linux environment. You have access to tools you can use to help the user.\n\nAvailable tools: bash, read_file, write_file, grep, glob, list_dir, web_fetch\n\nWhen you need information, call the appropriate tool. When you have enough information, provide a complete answer.\n\nRULES:\n- Use tools when you need information, but limit to 2-3 calls and then finalize\n- Use EXACT paths from tool results — never invent or guess file paths\n- When a tool returns a file list, use those exact filenames in subsequent calls\n- Provide complete, helpful responses\n- ALWAYS explain your reasoning step by step before calling a tool. Show what you're thinking and why.\n- State your intent clearly before each tool use."
+let SYSTEM_PROMPT = "You are Bonsai, an AI assistant running in a Linux environment. You have access to tools you can use to help the user.\n\nAvailable tools: bash, read_file, write_file, grep, glob, list_dir, web_fetch\n\nWhen you need information, call the appropriate tool. When you have enough information, provide a complete answer.\n\nRULES:\n- Use tools ONLY when the task actually requires filesystem or web access\n- For simple conversation, greetings, or chitchat, just reply naturally — do NOT call tools\n- Limit tool calls to 2-3 per task, then finalize\n- Use EXACT paths from tool results — never invent or guess file paths\n- Provide complete, helpful responses\n- ALWAYS explain your reasoning step by step before calling a tool. Show what you're thinking and why.\n- State your intent clearly before each tool use."
 
 proc trim_history(history):
     if len(history) <= 2:
@@ -112,12 +112,13 @@ proc _cjson_get_str(cj, key):
         return ""
     return ""
 
+let CJSON_KEYS = ["path", "content", "pattern", "url", "command"]
+
 proc _cjson_into_dict(cj, target):
-    target["path"] = _cjson_get_str(cj, "path")
-    target["content"] = _cjson_get_str(cj, "content")
-    target["pattern"] = _cjson_get_str(cj, "pattern")
-    target["url"] = _cjson_get_str(cj, "url")
-    target["command"] = _cjson_get_str(cj, "command")
+    for key in CJSON_KEYS:
+        let val = _cjson_get_str(cj, key)
+        if val != nil and val != "":
+            target[key] = val
 
 proc build_tool_result_entry(name, result):
     let tool_msg = "TOOL RESULT (" + name + "):\n" + result
@@ -244,8 +245,11 @@ proc run_agent(user_input, history, on_token, on_tool_call, on_final):
                 if type(tc_args) == "dict":
                     var args_parts = []
                     for key in dict_keys(tc_args):
-                        push(args_parts, key + "=" + tc_args[key])
-                    intent = intent + " with " + join(args_parts, ", ")
+                        let v = tc_args[key]
+                        if v != nil and v != "":
+                            push(args_parts, key + "=" + v)
+                    if len(args_parts) > 0:
+                        intent = intent + " with " + join(args_parts, ", ")
 
                 var compiled = false
                 for retry in range(MAX_TOOL_RETRIES + 1):
