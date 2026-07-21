@@ -120,7 +120,7 @@ proc test_hist_empty_skills():
         return false
     if not expect_contains(hist_empty[0]["content"], "Available tools"):
         return false
-    if expect_contains(hist_empty[0]["content"], "Loaded Skills"):
+    if indexof(hist_empty[0]["content"], "Loaded Skills") >= 0:
         print "    should NOT contain skills header when no skills"
         return false
     return true
@@ -128,7 +128,7 @@ proc test_hist_empty_skills():
 proc test_hist_nil_skills():
     let hist = agent.init_history_with_skills(nil)
     let content = hist[0]["content"]
-    if expect_contains(content, "Loaded Skills"):
+    if indexof(content, "Loaded Skills") >= 0:
         print "    should NOT contain skills header when nil"
         return false
     return true

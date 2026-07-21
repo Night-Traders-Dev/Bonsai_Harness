@@ -49,12 +49,21 @@ let BRIGHT_MAGENTA = "\x1b[95m"
 let BRIGHT_CYAN = "\x1b[96m"
 
 var _thinking = false
+var _spinner_idx = 0
 var _in_think_block = false
+
+proc tick_spinner():
+    if _thinking:
+        let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        let f = frames[_spinner_idx % len(frames)]
+        _spinner_idx = _spinner_idx + 1
+        sys.stdout_write("\r\x1b[K  " + CYAN + f + RESET + DIM + " thinking..." + RESET)
 
 proc stop_spinner():
     if _thinking:
         sys.stdout_write("\r\x1b[K")
         _thinking = false
+        _spinner_idx = 0
 
 proc print_raw(text):
     sys.stdout_write(text)
@@ -86,7 +95,8 @@ proc print_user_msg(text):
 proc print_assistant_header():
     stop_spinner()
     _thinking = true
-    print_raw(DIM + "  thinking..." + RESET)
+    _spinner_idx = 0
+    tick_spinner()
 
 proc print_token(tok):
     stop_spinner()

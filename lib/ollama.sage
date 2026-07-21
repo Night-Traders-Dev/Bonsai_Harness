@@ -306,11 +306,15 @@ proc send_and_stream(messages, tools, on_token, on_done):
     tcp.sendall(conn, req)
 
     let _start = sys.clock()
+    var _last_tick = sys.clock()
 
     var status_line = ""
     var ch = tcp.recv(conn, 1)
     while ch == "" and not _check_timeout(_start, _timeout_ms):
         thread.sleep(0.02)
+        if sys.clock() - _last_tick >= 0.08:
+            tui.tick_spinner()
+            _last_tick = sys.clock()
         ch = tcp.recv(conn, 1)
 
     while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
@@ -318,6 +322,9 @@ proc send_and_stream(messages, tools, on_token, on_done):
         ch = tcp.recv(conn, 1)
         while ch == "" and not _check_timeout(_start, _timeout_ms):
             thread.sleep(0.02)
+            if sys.clock() - _last_tick >= 0.08:
+                tui.tick_spinner()
+                _last_tick = sys.clock()
             ch = tcp.recv(conn, 1)
 
     var content_length = 0
@@ -328,12 +335,18 @@ proc send_and_stream(messages, tools, on_token, on_done):
         ch = tcp.recv(conn, 1)
         while ch == "" and not _check_timeout(_start, _timeout_ms):
             thread.sleep(0.02)
+            if sys.clock() - _last_tick >= 0.08:
+                tui.tick_spinner()
+                _last_tick = sys.clock()
             ch = tcp.recv(conn, 1)
         while ch != "\n" and ch != "" and not _check_timeout(_start, _timeout_ms):
             hdr = hdr + ch
             ch = tcp.recv(conn, 1)
             while ch == "" and not _check_timeout(_start, _timeout_ms):
                 thread.sleep(0.02)
+                if sys.clock() - _last_tick >= 0.08:
+                    tui.tick_spinner()
+                    _last_tick = sys.clock()
                 ch = tcp.recv(conn, 1)
         hdr = strip(hdr)
         if hdr == "":
@@ -360,6 +373,9 @@ proc send_and_stream(messages, tools, on_token, on_done):
             var ch = tcp.recv(conn, 1)
             while ch == "" and not _check_timeout(_start, _timeout_ms):
                 thread.sleep(0.02)
+                if sys.clock() - _last_tick >= 0.08:
+                    tui.tick_spinner()
+                    _last_tick = sys.clock()
                 ch = tcp.recv(conn, 1)
             if ch == "":
                 break
