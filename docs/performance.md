@@ -155,6 +155,13 @@ Possible levers for the future:
   NDJSON parser processes each chunk in constant time per byte.
 - The non-streaming benchmark path completes all 25 tasks in ~8–10 minutes
   (dominated by model inference, not harness overhead).
+- The dual-model architecture adds one extra API call per tool use (MiniCPM
+  compilation). Each compilation is a one-shot request to a 1B model and
+  typically completes in 1–3 seconds, adding ~2 s overhead per tool-call turn.
+  This is offset by fewer malformed-tool-call retries.
+- Dynamic model switching (`ollama.set_model`) triggers Ollama's model loading
+  on first use of each model, adding ~5–10 s the first time MiniCPM is invoked.
+  Subsequent switches are faster because Ollama keeps both models cached.
 
 ## Related
 

@@ -7,9 +7,11 @@ callbacks to the TUI.
 ## Responsibilities
 
 1. Load skills and build the initial conversation history.
-2. Print the banner.
-3. Loop: read a line, process it, repeat until the user quits.
-4. Translate agent events (tokens, tool calls, final answer) into TUI output.
+2. Activate the primary model (Bonsai 4B) via `provider.use_primary()`.
+3. Print the banner.
+4. Loop: read a line, process it, repeat until the user quits.
+5. Translate agent events (tokens, tool calls, final answer) into TUI output.
+6. Unload the current model on exit.
 
 ## Startup
 
@@ -17,12 +19,16 @@ callbacks to the TUI.
 let skills_dir = "skills"
 var history = agent.init_history_with_skills(skills.load_skills(skills_dir))
 var running = true
+
+provider.use_primary()
 ```
 
 - `skills.load_skills("skills")` reads every `SKILL.md` under `skills/` and
   returns their concatenated bodies (frontmatter stripped).
 - `agent.init_history_with_skills(...)` builds a one-element history whose only
   entry is the system message (base prompt + the injected skills block).
+- `provider.use_primary()` sets the active Ollama model to Bonsai 4B so the
+  agent loop starts with the primary reasoning model.
 - `history` is a mutable list of message dicts that persists across turns.
 
 ## Callbacks
@@ -62,6 +68,7 @@ Handles one line of user input. Returns `true` to keep looping, `false` to quit.
 | `:help` | Prints the command help via `tui.show_help()`. |
 | `:history` | Prints the number of entries in `history`. |
 | `:ingest-skills` | Re-loads skills, rebuilds `history`, and reports how many skill files were ingested. |
+| `:models` | Prints the configured primary and tool-compiler model names and the currently active model. |
 | `""` (empty) | Ignored; loop continues. |
 | anything else | Treated as a prompt: render it, start the assistant block, and call `agent.run_agent`. |
 
@@ -92,8 +99,8 @@ print "Goodbye!"
 ```
 
 `tui.get_input()` prints the `>` prompt and reads a line. Each iteration calls
-`process_input`; when it returns `false`, the loop exits and a goodbye message
-is printed.
+`process_input`; when it returns `false`, the current model is unloaded,
+the loop exits, and a goodbye message is printed.
 
 ## Extending
 
@@ -110,3 +117,4 @@ is printed.
 - [agent.md](agent.md) — what `run_agent` does with the callbacks.
 - [tui.md](tui.md) — the rendering functions used here.
 - [skills.md](skills.md) — `load_skills` / `get_skills_content`.
+- [architecture.md](architecture.md) §9 — model switching and provider abstraction.

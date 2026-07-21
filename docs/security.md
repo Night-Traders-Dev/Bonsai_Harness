@@ -39,6 +39,25 @@ the `bash`, `write_file`, and `web_fetch` tools with full OS access.
 
 ## Mitigations applied
 
+### V1 — Tool validation layer
+
+**Files:** `lib/tool_validator.sage`
+
+The dual-model architecture adds a dedicated validation layer that intercepts
+every tool call before execution. `tool_validator.validate_tool_call()` enforces:
+
+- **Tool existence** — rejects calls to unknown or unregistered tools.
+- **Required arguments** — verifies every required argument is present and is
+  a string.
+- **Security policies:**
+  - `bash`: blocks destructive commands (`rm -rf /`, `mkfs`, `dd if=`)
+  - `read_file`/`write_file`: requires `path`, blocks `..` traversal
+  - `web_fetch`: only `http://` URLs, no `https://`
+
+Calls that fail validation return a structured error which is surfaced in the
+TUI and the agent can recover from it. This adds a defense-in-depth layer
+independent of the tool runtime's existing path/SSRF checks.
+
 ### H1 — Workspace confinement for file tools
 
 **Files:** `lib/tools.sage:15-35`

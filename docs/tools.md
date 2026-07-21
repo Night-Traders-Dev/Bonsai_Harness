@@ -144,3 +144,4 @@ missing-argument errors), and the unknown-tool case (23 tests). See
 
 - [agent.md](agent.md) — how tools are surfaced and executed in the loop.
 - [ollama.md](ollama.md) — how `parameters` schemas reach the model.
+- [architecture.md](architecture.md) §7 — tool validation pipeline (`lib/tool_validator.sage`).

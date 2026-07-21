@@ -39,7 +39,7 @@
 | SageLang | ≥ 4.1.0 | `git clone https://github.com/Night-Traders-Dev/SageLang && cd SageLang && sudo ./sagemake --install --skip-tests` |
 | Ollama | ≥ 0.32.1 | `curl -fsSL https://ollama.com/install.sh \| sh` |
 | Bonsai-4B | Q1_0 | `ollama pull hf.co/prism-ml/Bonsai-4B-gguf:Q1_0` |
-| MiniCPM5-1B (optional) | F16 | `ollama pull minicpm5-1b` |
+| MiniCPM5-1B | F16 | `ollama pull minicpm5-1b` |
 
 ---
 
