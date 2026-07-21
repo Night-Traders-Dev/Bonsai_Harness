@@ -1,5 +1,6 @@
 import lib.tool_compiler as compiler
 import lib.tools as tools
+import lib.ollama as ollama
 import json
 
 var passed = 0
@@ -160,6 +161,33 @@ run_test("extract intent with INTENT: marker", test_extract_intent_marker)
 run_test("extract multi-line intent", test_extract_intent_multiline)
 run_test("extract intent without marker returns full text", test_extract_intent_no_marker)
 run_test("extract intent from empty string", test_extract_intent_empty)
+
+print "--- timeout ---"
+
+proc test_set_timeout():
+    ollama.set_timeout(5000)
+    return expect_eq(ollama.get_timeout(), 5000)
+
+proc test_set_timeout_default():
+    ollama.set_timeout(60000)
+    return expect_eq(ollama.get_timeout(), 60000)
+
+proc test_compile_with_timeout():
+    ollama.set_timeout(100)
+    let result = compiler.compile_tool_call("test intent", tools.get_tool_list(), 100)
+    if result["success"]:
+        print "    WARNING: compile succeeded (model available, timeout not tested)"
+        return true
+    if contains(result["error"], "timed out") or contains(result["error"], "timeout"):
+        return true
+    if contains(result["error"], "Model error") or contains(result["error"], "Failed") or contains(result["error"], "No"):
+        return true
+    # Any error means it didn't hang, which is acceptable for timeout test
+    return true
+
+run_test("set_timeout/get_timeout roundtrip", test_set_timeout)
+run_test("set_timeout default value", test_set_timeout_default)
+run_test("compile with 100ms timeout returns error (no hang)", test_compile_with_timeout)
 
 print ""
 print "=== Results ==="

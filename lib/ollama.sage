@@ -1,11 +1,13 @@
 import json
 import tcp
 import strings
+import sys
 import lib.tui as tui
 
 var current_model = "hf.co/prism-ml/Bonsai-4B-gguf:Q1_0"
 var current_host = "localhost"
 var current_port = 11434
+var _timeout_ms = 60000
 let CONNECTION_POOL = {}
 let CONNECTION_EXPIRY = 60000
 let last_activity = 0
@@ -22,9 +24,20 @@ proc set_host(host):
 proc set_port(port):
     current_port = port
 
+proc set_timeout(ms):
+    _timeout_ms = ms
+
+proc get_timeout():
+    return _timeout_ms
+
 proc get_timestamp():
-    import sys
     return sys.clock()
+
+proc _check_timeout(start_ms, timeout_ms):
+    if timeout_ms <= 0:
+        return false
+    let elapsed = (sys.clock() - start_ms) * 1000
+    return elapsed >= timeout_ms
 
 proc get_connection():
     let now = get_timestamp()
@@ -431,6 +444,7 @@ proc chat_simple(messages, tools):
 proc send_once(messages, tools):
     import thread
     let body_str = build_request(messages, tools, false)
+    let _start = sys.clock()
 
     var req = "POST /api/chat HTTP/1.1\r\n"
     req = req + "Host: " + current_host + ":" + str(current_port) + "\r\n"
@@ -445,15 +459,24 @@ proc send_once(messages, tools):
     var status_line = ""
     var ch = tcp.recv(conn, 1)
     while ch != "\n":
+        if _check_timeout(_start, _timeout_ms):
+            tcp.close(conn)
+            return ""
         status_line = status_line + ch
         ch = tcp.recv(conn, 1)
 
     var content_length = 0
     var chunked = false
     while true:
+        if _check_timeout(_start, _timeout_ms):
+            tcp.close(conn)
+            return ""
         var hdr = ""
         ch = tcp.recv(conn, 1)
         while ch != "\n":
+            if _check_timeout(_start, _timeout_ms):
+                tcp.close(conn)
+                return ""
             hdr = hdr + ch
             ch = tcp.recv(conn, 1)
         hdr = strip(hdr)
@@ -471,11 +494,17 @@ proc send_once(messages, tools):
     var body = ""
     if chunked:
         while true:
+            if _check_timeout(_start, _timeout_ms):
+                break
             var sl = ""
             ch = tcp.recv(conn, 1)
             while ch != "\n":
+                if _check_timeout(_start, _timeout_ms):
+                    break
                 sl = sl + ch
                 ch = tcp.recv(conn, 1)
+            if _check_timeout(_start, _timeout_ms):
+                break
             let hex_str = strip(sl)
             if hex_str == "":
                 break
@@ -484,9 +513,11 @@ proc send_once(messages, tools):
                 break
             var got = 0
             while got < chunk_size:
+                if _check_timeout(_start, _timeout_ms):
+                    break
                 let more = tcp.recv(conn, chunk_size - got)
                 var retries = 5
-                while len(more) == 0 and retries > 0:
+                while len(more) == 0 and retries > 0 and not _check_timeout(_start, _timeout_ms):
                     thread.sleep(0.02)
                     more = tcp.recv(conn, chunk_size - got)
                     retries = retries - 1
@@ -494,13 +525,17 @@ proc send_once(messages, tools):
                     break
                 body = body + more
                 got = got + len(more)
+            if _check_timeout(_start, _timeout_ms):
+                break
             tcp.recv(conn, 2)
     elif content_length > 0:
         var got = 0
         while got < content_length:
+            if _check_timeout(_start, _timeout_ms):
+                break
             let more = tcp.recv(conn, content_length - got)
             var retries = 5
-            while len(more) == 0 and retries > 0:
+            while len(more) == 0 and retries > 0 and not _check_timeout(_start, _timeout_ms):
                 thread.sleep(0.02)
                 more = tcp.recv(conn, content_length - got)
                 retries = retries - 1
@@ -512,10 +547,12 @@ proc send_once(messages, tools):
         var buf = tcp.recv(conn, 4096)
         var retries = 5
         while len(buf) > 0:
+            if _check_timeout(_start, _timeout_ms):
+                break
             body = body + buf
             buf = tcp.recv(conn, 4096)
             retries = 5
-            while len(buf) == 0 and retries > 0:
+            while len(buf) == 0 and retries > 0 and not _check_timeout(_start, _timeout_ms):
                 thread.sleep(0.02)
                 buf = tcp.recv(conn, 4096)
                 retries = retries - 1
@@ -525,6 +562,12 @@ proc send_once(messages, tools):
 
 proc ask(messages, tools):
     let body = send_once(messages, tools)
+    if body == "":
+        let err = {}
+        err["error"] = "Request timed out after " + str(_timeout_ms) + "ms"
+        err["content"] = ""
+        err["tool_calls"] = []
+        return err
     return parse_response_body(body)
 
 # Return the model's actual answer text: prefer the post-reasoning content

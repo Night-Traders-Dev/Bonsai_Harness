@@ -1,0 +1,11 @@
+[SyntaxValidator_4B]
+model = /home/kraken/Devel/Bonsai_Harness/models/Bonsai-4B-Q1_0.gguf
+alias = syntax-validator
+
+[CodeGen_4B]
+model = /home/kraken/Devel/Bonsai_Harness/models/Bonsai-4B-Q1_0.gguf
+alias = code-gen
+
+[RAGFilter_4B]
+model = /home/kraken/Devel/Bonsai_Harness/models/Bonsai-4B-Q1_0.gguf
+alias = rag-filter

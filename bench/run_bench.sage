@@ -29,16 +29,29 @@ proc run_category(cat):
     print BOLD + cat + RESET + DIM + " (" + str(total) + " tasks)" + RESET
     for task in tasks:
         sys.stdout_write("  " + DIM + task["id"] + RESET + " ... ")
-        let response = bench.query_model(task["prompt"])
-        let ok = bench.score(task, response)
-        if ok:
-            print GREEN + "pass" + RESET
-            correct = correct + 1
+        if cat == "tool_compilation":
+            let result = bench.score_compiler_task(task)
+            let ok = result["correct"]
+            let response = result["output"]
+            if ok:
+                print GREEN + "pass" + RESET
+                correct = correct + 1
+            else:
+                var preview = strip(response)
+                if len(preview) > 40:
+                    preview = slice(preview, 0, 40) + "..."
+                print RED + "fail" + RESET + DIM + " (got: " + preview + ")" + RESET
         else:
-            var preview = strip(response)
-            if len(preview) > 40:
-                preview = slice(preview, 0, 40) + "..."
-            print RED + "fail" + RESET + DIM + " (got: " + preview + ")" + RESET
+            let response = bench.query_model(task["prompt"])
+            let ok = bench.score(task, response)
+            if ok:
+                print GREEN + "pass" + RESET
+                correct = correct + 1
+            else:
+                var preview = strip(response)
+                if len(preview) > 40:
+                    preview = slice(preview, 0, 40) + "..."
+                print RED + "fail" + RESET + DIM + " (got: " + preview + ")" + RESET
     let pct = correct * 100 / total
     var color = RED
     if pct >= 80:

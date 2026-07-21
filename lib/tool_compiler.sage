@@ -33,13 +33,14 @@ proc extract_json_from_text(text):
         return slice(text, start, end_pos)
     return ""
 
-proc compile_tool_call(intent, tool_defs):
+proc compile_tool_call(intent, tool_defs, timeout_ms=30000):
     let result = {}
     result["success"] = false
     result["tool_call"] = {}
     result["error"] = ""
 
     ollama.set_model(cfg.MODEL_MINICPM)
+    ollama.set_timeout(timeout_ms)
 
     let messages = []
     let sys_msg = {}

@@ -1,4 +1,8 @@
 import lib.ollama as ollama
+import lib.tool_compiler as compiler
+import lib.tool_validator as validator
+import lib.tools as tools
+import json
 
 # Benchmark suite for the Bonsai harness model.
 #
@@ -180,10 +184,48 @@ proc _tasks_commonsense():
     ]
 
 # ──────────────────────────────────────────────
+# tool_compilation — Dual-model tool-compiler pipeline
+#   Tests the deterministic parts of the intent→tool-call pipeline:
+#     A) JSON extraction from MiniCPM output
+#     B) Intent extraction from Bonsai output
+#     C) Prompt building (verifies structure)
+#     D) Validation logic on synthetic tool calls
+#   These are deterministic (no model call) so they run fast and
+#   measure the compiler's correctness rather than model accuracy.
+# ──────────────────────────────────────────────
+proc _tasks_tool_compilation():
+    return [
+        # ── A: JSON extraction (extract_json_from_text) ──
+        {"id": "comp-extract-1", "prompt": "simple extraction", "input": "Here is the result: {\"name\":\"grep\",\"arguments\":{\"pattern\":\"TODO\"}}", "expected": "grep", "compiler_fn": "extract_json", "kind": "comp_extract"},
+        {"id": "comp-extract-2", "prompt": "nested json", "input": "{\"name\":\"bash\",\"arguments\":{\"command\":\"ls -la\"}}", "expected": "bash", "compiler_fn": "extract_json", "kind": "comp_extract"},
+        {"id": "comp-extract-3", "prompt": "extract from surrounding text", "input": "I think we should use the grep tool: {\"name\":\"grep\",\"arguments\":{\"pattern\":\"error\"}}. That will find matches.", "expected": "grep", "compiler_fn": "extract_json", "kind": "comp_extract"},
+        {"id": "comp-extract-4", "prompt": "no json returns empty", "input": "This is plain text with no JSON object", "expected": "", "compiler_fn": "extract_json", "kind": "comp_extract"},
+        {"id": "comp-extract-5", "prompt": "extract with braces in string", "input": "{\"name\":\"bash\",\"arguments\":{\"command\":\"echo {hello}\"}}", "expected": "bash", "compiler_fn": "extract_json", "kind": "comp_extract"},
+        {"id": "comp-extract-6", "prompt": "first of multiple json objects", "input": "First {\"name\":\"grep\"} then {\"name\":\"bash\"}", "expected": "grep", "compiler_fn": "extract_json", "kind": "comp_extract"},
+
+        # ── B: Intent extraction (extract_intent_from_bonsai) ──
+        {"id": "comp-intent-1", "prompt": "intent with marker", "input": "I'll search the codebase.\nINTENT: Find all references to function parse_config\nACTION: TOOL_CALL(...)", "expected": "Find all references to function parse_config", "compiler_fn": "extract_intent", "kind": "comp_intent"},
+        {"id": "comp-intent-2", "prompt": "multi-line intent", "input": "INTENT: Search for the string 'timeout'\nin the src directory\nFUNCTION: grep", "expected": "Search for the string 'timeout'\nin the src directory", "compiler_fn": "extract_intent", "kind": "comp_intent"},
+        {"id": "comp-intent-3", "prompt": "no marker returns full text", "input": "I need to find where timeout is defined in the codebase.", "expected": "I need to find where timeout is defined in the codebase.", "compiler_fn": "extract_intent", "kind": "comp_intent"},
+        {"id": "comp-intent-4", "prompt": "empty input", "input": "", "expected": "", "compiler_fn": "extract_intent", "kind": "comp_intent"},
+
+        # ── C: Prompt building (build_compiler_prompt) ──
+        {"id": "comp-prompt-1", "prompt": "prompt contains intent", "input": "search for error", "expected": "search for error", "compiler_fn": "check_prompt_contains", "kind": "comp_prompt"},
+        {"id": "comp-prompt-2", "prompt": "prompt has JSON format", "input": "find file", "expected": "arguments", "compiler_fn": "check_prompt_contains", "kind": "comp_prompt"},
+
+        # ── D: Validation (validate_tool_call) ──
+        {"id": "comp-val-1", "prompt": "valid bash call", "input": "{\"name\":\"bash\",\"arguments_str\":\"{\\\"command\\\":\\\"ls\\\"}\"}", "expected": "true", "compiler_fn": "validate", "kind": "comp_validate"},
+        {"id": "comp-val-2", "prompt": "missing required arg", "input": "{\"name\":\"bash\",\"arguments_str\":\"{}\"}", "expected": "false", "compiler_fn": "validate", "kind": "comp_validate"},
+        {"id": "comp-val-3", "prompt": "unknown tool", "input": "{\"name\":\"nonexistent_tool\",\"arguments_str\":\"{}\"}", "expected": "false", "compiler_fn": "validate", "kind": "comp_validate"},
+        {"id": "comp-val-4", "prompt": "destructive bash (rm -rf /)", "input": "{\"name\":\"bash\",\"arguments_str\":\"{\\\"command\\\":\\\"rm -rf /\\\"}\"}", "expected": "false", "compiler_fn": "validate", "kind": "comp_validate"},
+        {"id": "comp-val-5", "prompt": "valid grep call", "input": "{\"name\":\"grep\",\"arguments_str\":\"{\\\"pattern\\\":\\\"hello\\\"}\"}", "expected": "true", "compiler_fn": "validate", "kind": "comp_validate"},
+    ]
+
+# ──────────────────────────────────────────────
 # Public API
 # ──────────────────────────────────────────────
 proc get_categories():
-    return ["reasoning", "knowledge", "coding", "tool_use", "instruction", "reading_comprehension", "commonsense_reasoning"]
+    return ["reasoning", "knowledge", "coding", "tool_use", "instruction", "reading_comprehension", "commonsense_reasoning", "tool_compilation"]
 
 proc get_tasks(category):
     if category == "reasoning":
@@ -200,6 +242,8 @@ proc get_tasks(category):
         return _tasks_reading()
     if category == "commonsense_reasoning":
         return _tasks_commonsense()
+    if category == "tool_compilation":
+        return _tasks_tool_compilation()
     return []
 
 # ──────────────────────────────────────────────
@@ -286,3 +330,64 @@ proc query_model(prompt):
     if dict_has(result, "error"):
         return ""
     return ollama.answer_text(result)
+
+# Score a tool_compilation benchmark task deterministically (no model call).
+# Returns {"correct": bool, "output": string}.
+proc score_compiler_task(task):
+    let fn = task["compiler_fn"]
+    let input = task["input"]
+    let expected = task["expected"]
+
+    if fn == "extract_json":
+        let result = compiler.extract_json_from_text(input)
+        if result == "":
+            let ok = expected == ""
+            return {"correct": ok, "output": result}
+        let parsed = json.cJSON_Parse(result)
+        if parsed == nil:
+            let ok = expected == ""
+            return {"correct": ok, "output": result}
+        let name_node = json.cJSON_GetObjectItem(parsed, "name")
+        var name = ""
+        if name_node != nil:
+            name = json.cJSON_GetStringValue(name_node)
+        json.cJSON_Delete(parsed)
+        let ok = name == expected
+        return {"correct": ok, "output": name}
+
+    if fn == "extract_intent":
+        let result = compiler.extract_intent_from_bonsai(input)
+        let ok = strip(result) == strip(expected)
+        return {"correct": ok, "output": slice(result, 0, 200)}
+
+    if fn == "check_prompt_contains":
+        let tools_list = tools.get_tool_list()
+        let prompt = compiler.build_compiler_prompt(input, tools_list)
+        let ok = contains(prompt, expected)
+        return {"correct": ok, "output": slice(prompt, 0, 200)}
+
+    if fn == "validate":
+        let ref = tools.get_tool_list()
+        if len(ref) == 0:
+            {}
+        let call = {}
+        call["name"] = ""
+        call["arguments_str"] = "{}"
+        let parsed_call = json.cJSON_Parse(input)
+        if parsed_call != nil:
+            let name_n = json.cJSON_GetObjectItem(parsed_call, "name")
+            if name_n != nil:
+                let raw = json.cJSON_GetStringValue(name_n)
+                if raw != nil:
+                    call["name"] = "" + raw
+            let args_n = json.cJSON_GetObjectItem(parsed_call, "arguments_str")
+            if args_n != nil:
+                let raw_a = json.cJSON_GetStringValue(args_n)
+                if raw_a != nil:
+                    call["arguments_str"] = "" + raw_a
+            json.cJSON_Delete(parsed_call)
+        let v = validator.validate_tool_call(call)
+        let ok = (expected == "true" and v["valid"]) or (expected == "false" and not v["valid"])
+        return {"correct": ok, "output": str(v["valid"])}
+
+    return {"correct": false, "output": "unknown compiler_fn: " + fn}
