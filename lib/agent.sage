@@ -81,6 +81,20 @@ proc parse_text_tool_call(content):
         elif startswith(upper_line, "FINAL:"):
             result["has_final"] = true
             result["final_answer"] = strip(slice(trimmed, 6, len(trimmed)))
+    if not result["has_tool_call"]:
+        let json_str = compiler.extract_json_from_text(content)
+        if json_str != "":
+            let parsed = json.cJSON_Parse(json_str)
+            if parsed != nil:
+                let name_node = json.cJSON_GetObjectItem(parsed, "name")
+                let args_node = json.cJSON_GetObjectItem(parsed, "arguments")
+                if name_node != nil and args_node != nil:
+                    let raw_name = json.cJSON_GetStringValue(name_node)
+                    if raw_name != nil:
+                        result["has_tool_call"] = true
+                        result["name"] = "" + raw_name
+                        result["arguments"] = args_node
+                json.cJSON_Delete(parsed)
     return result
 
 proc _cjson_get_str(cj, key):

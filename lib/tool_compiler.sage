@@ -12,7 +12,7 @@ proc build_compiler_prompt(intent, tool_defs):
         prompt = prompt + "\n- " + t["name"] + ": " + t["description"]
         prompt = prompt + "\n  Schema: " + t["parameters"]
     prompt = prompt + "\n\nTool Intent:\n" + intent
-    prompt = prompt + "\n\nOutput exactly one JSON tool call:\n{\n  \"name\": \"tool_name\",\n  \"arguments\": {\n    \"arg1\": \"value1\"\n  }\n}"
+    prompt = prompt + "\n\nOutput exactly one JSON tool call. Use the actual tool name and actual argument names from the Available Tools list — do NOT use placeholder names or generic values.\n\nCorrect format:\n{\"name\":\"<tool>\",\"arguments\":{<args>}}"
     return prompt
 
 proc extract_json_from_text(text):
