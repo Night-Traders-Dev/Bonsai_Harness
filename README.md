@@ -190,7 +190,7 @@ Detailed, per-component documentation lives in [`docs/`](docs/). Start with the
 | `grep` | Regex search in files | `pattern`, `path` (optional) |
 | `glob` | Find files by glob pattern | `pattern` (string) |
 | `list_dir` | List directory contents | `path` (optional, default: `.`) |
-| `web_fetch` | Fetch URL (HTTP only) | `url` (string) |
+| `web_fetch` | Fetch URL (HTTP & HTTPS) | `url` (string) |
 
 ---
 
@@ -200,13 +200,18 @@ Detailed, per-component documentation lives in [`docs/`](docs/). Start with the
 ./sagemake test
 ```
 
-Three self-test suites run without touching the network:
+Eight self-test suites run without touching the network:
 
 | Suite | Coverage |
 |-------|----------|
-| `tests/test_tools.sage` | tool registration, dispatch, argument handling (23 tests) |
-| `tests/test_skills.sage` | skill loading, frontmatter parsing, subdir `SKILL.md`, shipped-skill validation (15 tests) |
-| `tests/test_benchmark.sage` | benchmark structure and every scoring matcher (17 tests) |
+| `tests/test_tools.sage` | tool registration, dispatch, argument handling, HTTPS fetching |
+| `tests/test_skills.sage` | skill loading, frontmatter parsing, subdir `SKILL.md`, shipped-skill validation |
+| `tests/test_benchmark.sage` | benchmark structure and every scoring matcher |
+| `tests/test_model_router.sage` | task-type to role routing and model configuration |
+| `tests/test_tool_compiler.sage` | compiler prompt generation, JSON extraction, intent extraction |
+| `tests/test_tool_validator.sage` | tool call schema, path traversal, security policy validation |
+| `tests/test_agent_loop.sage` | agent history management, ReAct loop parsing, tool results |
+| `tests/test_tui.sage` | ANSI sequence stripping and formatting utilities |
 
 ---
 

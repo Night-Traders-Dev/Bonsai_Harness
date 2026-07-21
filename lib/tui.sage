@@ -12,15 +12,20 @@ proc strip_ansi(text):
     while i < n:
         let c = slice(text, i, i + 1)
         if c == "\x1b":
-            # consume escape sequence: ESC [ params... final
-            # final byte is in range 0x40-0x7e (ASCII letter)
-            # parameter / intermediate bytes 0x20-0x3f
             i = i + 1
-            while i < n:
-                let ec = ord(slice(text, i, i + 1))
+            if i < n and slice(text, i, i + 1) == "[":
                 i = i + 1
-                if ec >= 0x40 and ec <= 0x7e:
-                    break  # final byte — escape sequence ends
+                while i < n:
+                    let ec = ord(slice(text, i, i + 1))
+                    i = i + 1
+                    if ec >= 0x40 and ec <= 0x7e:
+                        break
+            else:
+                while i < n:
+                    let ec = ord(slice(text, i, i + 1))
+                    i = i + 1
+                    if ec >= 0x40 and ec <= 0x7e:
+                        break
         else:
             out = out + c
             i = i + 1
@@ -44,6 +49,26 @@ let BRIGHT_MAGENTA = "\x1b[95m"
 let BRIGHT_CYAN = "\x1b[96m"
 
 var _thinking = false
+var _spinner_running = false
+var _spinner_thread = nil
+var _in_think_block = false
+
+proc _spinner_loop():
+    let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    var idx = 0
+    while _spinner_running:
+        let f = frames[idx % len(frames)]
+        sys.stdout_write("\r\x1b[K  " + CYAN + f + RESET + DIM + " thinking..." + RESET)
+        thread.sleep(0.08)
+        idx = idx + 1
+
+proc stop_spinner():
+    if _spinner_running:
+        _spinner_running = false
+        if _spinner_thread != nil:
+            thread.join(_spinner_thread)
+            _spinner_thread = nil
+        sys.stdout_write("\r\x1b[K")
 
 proc print_raw(text):
     sys.stdout_write(text)
@@ -73,19 +98,48 @@ proc print_user_msg(text):
     print_nl()
 
 proc print_assistant_header():
+    stop_spinner()
     _thinking = true
-    print_raw(DIM + "  thinking..." + RESET)
+    _spinner_running = true
+    _spinner_thread = thread.spawn(_spinner_loop)
 
 proc print_token(tok):
+    stop_spinner()
     if _thinking:
-        print_raw("\r\x1b[K" + GREEN + "  " + RESET)
         _thinking = false
-    print_raw(GREEN + strip_ansi(tok) + RESET)
+        sys.stdout_write("\r\x1b[K  ")
+
+    let clean_tok = strip_ansi(tok)
+
+    if contains(clean_tok, "<think>"):
+        _in_think_block = true
+        print_raw(DIM + GRAY + "💭 Reasoning:\n  " + RESET)
+        let rest = replace(clean_tok, "<think>", "")
+        if len(rest) > 0:
+            print_raw(DIM + GRAY + rest + RESET)
+        return
+
+    if contains(clean_tok, "</think>"):
+        let parts = split(clean_tok, "</think>")
+        if len(parts) >= 1 and len(parts[0]) > 0:
+            print_raw(DIM + GRAY + parts[0] + RESET)
+        print_nl()
+        _in_think_block = false
+        if len(parts) >= 2 and len(parts[1]) > 0:
+            print_raw(GREEN + parts[1] + RESET)
+        return
+
+    if _in_think_block:
+        print_raw(DIM + GRAY + clean_tok + RESET)
+    else:
+        print_raw(GREEN + clean_tok + RESET)
 
 proc print_assistant_footer():
+    stop_spinner()
     if _thinking:
-        print_raw("\r\x1b[K")
+        sys.stdout_write("\r\x1b[K")
         _thinking = false
+    _in_think_block = false
     print_nl()
 
 proc print_tool_call(name, args_json):

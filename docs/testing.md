@@ -15,17 +15,18 @@ sage tests/test_benchmark.sage
 
 ## Coverage summary
 
-| Suite | Covers | Tests |
-|-------|--------|-------|
-| `tests/test_tools.sage` | tool registration, dispatch, every tool's happy path + missing-argument errors, unknown-tool handling | 25 |
-| `tests/test_skills.sage` | skill loading, frontmatter parsing, subdir `SKILL.md`, shipped-skill validation | 15 |
-| `tests/test_benchmark.sage` | benchmark task structure and every scoring matcher | 17 |
-| `tests/test_model_router.sage` | task routing, model config get/set, role labels | 15 |
-| `tests/test_tool_compiler.sage` | JSON extraction, compiler prompt building, intent extraction | 14 |
-| `tests/test_tool_validator.sage` | argument extraction, structural validation, per-tool security rules | 23 |
-| `tests/test_agent_loop.sage` | history init, text tool-call parsing, trim, cJSON helpers, result entry building | 18 |
+| Suite | Covers |
+|-------|--------|
+| `tests/test_tools.sage` | tool registration, dispatch, argument handling, HTTPS fetching |
+| `tests/test_skills.sage` | skill loading, frontmatter parsing, subdir `SKILL.md`, shipped-skill validation |
+| `tests/test_benchmark.sage` | benchmark task structure and scoring matchers |
+| `tests/test_model_router.sage` | task routing, model config get/set, role labels |
+| `tests/test_tool_compiler.sage` | string-aware JSON extraction, compiler prompt building, intent extraction |
+| `tests/test_tool_validator.sage` | argument extraction, structural validation, per-tool security rules |
+| `tests/test_agent_loop.sage` | history init, text tool-call parsing, trim, cJSON helpers, result entry building |
+| `tests/test_tui.sage` | ANSI sequence stripping, formatting primitives |
 
-**Total: 127 tests.**
+**Total: 8 test suites (140 assertions).**
 
 ## The test harness pattern
 

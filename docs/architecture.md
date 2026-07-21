@@ -166,9 +166,9 @@ The `lib/tool_validator.sage` module enforces:
 - Tool exists in registry
 - Required arguments are present and are strings
 - Security policies:
-  - `bash`: blocks destructive commands (`rm -rf /`, `mkfs`, `dd if=`)
-  - `read_file`/`write_file`: requires `path`, blocks `..` traversal
-  - `web_fetch`: only `http://` URLs, no `https://`
+  - `bash`: blocks destructive commands (`rm -rf /`, `rm -rf ~`, `mkfs`, `dd if=`, `:(){ :|:& };:`, `chmod -R 777 /`)
+  - `read_file`/`write_file`: requires `path`, blocks `..` traversal and symlink resolution outside workspace root
+  - `web_fetch`: supports `http://` and `https://` URLs with SSRF host validation against private/loopback subnets
 - Rejected calls return a structured error shown in the TUI
 
 ## 8. Two request paths

@@ -232,23 +232,31 @@ proc test_web_fetch_missing_url():
     let r = validator.validate_tool_call(tc)
     return expect_invalid(r, "url")
 
-proc test_web_fetch_https_rejected():
+proc test_web_fetch_unsupported_scheme_rejected():
     let tc = {}
     tc["name"] = "web_fetch"
-    tc["arguments"] = {"url": "https://example.com"}
+    tc["arguments"] = {"url": "ftp://example.com"}
     let r = validator.validate_tool_call(tc)
-    return expect_invalid(r, "http://")
+    return expect_invalid(r, "URLs are supported")
 
-proc test_web_fetch_valid():
+proc test_web_fetch_valid_http():
     let tc = {}
     tc["name"] = "web_fetch"
     tc["arguments"] = {"url": "http://example.com"}
     let r = validator.validate_tool_call(tc)
     return expect_valid(r)
 
+proc test_web_fetch_valid_https():
+    let tc = {}
+    tc["name"] = "web_fetch"
+    tc["arguments"] = {"url": "https://example.com"}
+    let r = validator.validate_tool_call(tc)
+    return expect_valid(r)
+
 run_test("web_fetch missing url rejected", test_web_fetch_missing_url)
-run_test("web_fetch https rejected", test_web_fetch_https_rejected)
-run_test("web_fetch valid http passes", test_web_fetch_valid)
+run_test("web_fetch unsupported scheme rejected", test_web_fetch_unsupported_scheme_rejected)
+run_test("web_fetch valid http passes", test_web_fetch_valid_http)
+run_test("web_fetch valid https passes", test_web_fetch_valid_https)
 
 print ""
 print "=== Results ==="

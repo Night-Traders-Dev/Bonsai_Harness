@@ -224,6 +224,7 @@ def cmd_test(args):
         ROOT / "tests" / "test_tool_compiler.sage",
         ROOT / "tests" / "test_tool_validator.sage",
         ROOT / "tests" / "test_agent_loop.sage",
+        ROOT / "tests" / "test_tui.sage",
     ]
     errors = 0
     for script in test_suites:

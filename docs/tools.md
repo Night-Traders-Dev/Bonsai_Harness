@@ -91,13 +91,10 @@ Lists the entries of a directory with `io.listdir`.
 - **Errors:** `"Error: Not a directory: <path>"`
 
 ### `web_fetch`
-Fetches an `http://` (or `https://`-prefixed, treated as host) URL over a raw TCP
-socket, strips the HTTP headers, and returns the first **4000** characters of the
-body. Parses host, optional `:port`, and path from the URL.
+Fetches `http://` or `https://` URLs, strips HTTP headers if using raw TCP sockets, and returns the first **4000** characters of the body. Enforces SSRF host validation (`_is_blocked_host`) to block requests to loopback and private subnets. For `https://` URLs, executes resource-capped `curl` with SSL support.
 
 - **Args:** `url` (required)
-- **Note:** HTTP only — there is no TLS, so `https://` URLs connect on the parsed
-  host/port without encryption. For real HTTPS you'd need a TLS layer.
+- **Note:** Supports both HTTP and HTTPS. Host addresses are validated to block SSRF attempts targeting localhost or cloud metadata.
 
 ## Registration table
 

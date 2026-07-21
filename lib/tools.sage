@@ -21,6 +21,14 @@ proc _validate_path(path):
         return "Error: path is empty"
     if contains(path, ".."):
         return "Error: path traversal not allowed ('..' in path)"
+    if startswith(path, "/"):
+        let real_root = sys.shell_exec("realpath " + WORKSPACE_ROOT)
+        let real_path = sys.shell_exec("realpath " + path)
+        if real_root != nil and real_path != nil:
+            let clean_root = strip(real_root)
+            let clean_path = strip(real_path)
+            if clean_root != "" and clean_path != "" and not startswith(clean_path, clean_root):
+                return "Error: path resolves outside workspace root"
     return path
 
 proc register_tool(name, description, parameters, execute_fn):
@@ -236,11 +244,12 @@ proc web_fetch_execute(args):
         let url = args["url"]
         let host = url
         let path = "/"
-        var use_tls = false
+        var is_https = false
         if startswith(url, "http://"):
             host = slice(url, 7, len(url))
         elif startswith(url, "https://"):
-            return "Error: HTTPS is not supported (no TLS implementation); use http:// URLs only"
+            host = slice(url, 8, len(url))
+            is_https = true
         else:
             return "Error: URL must start with http:// or https://"
         let slash_idx = indexof(host, "/")
@@ -249,6 +258,8 @@ proc web_fetch_execute(args):
             host = slice(host, 0, slash_idx)
         let port_idx = indexof(host, ":")
         var port = 80
+        if is_https:
+            port = 443
         if port_idx >= 0:
             port = tonumber(slice(host, port_idx + 1, len(host)))
             host = slice(host, 0, port_idx)
@@ -256,6 +267,16 @@ proc web_fetch_execute(args):
         # addresses to prevent access to cloud metadata and internal services.
         if _is_blocked_host(host):
             return "Error: cannot fetch from private or loopback address (" + host + ")"
+
+        if is_https:
+            let cmd = "curl -s -L --max-filesize 500000 --max-time 15 -A 'BonsaiHarness/1.0' '" + url + "'"
+            let res = sys.shell_exec(cmd)
+            if res == nil or res == "":
+                return "Error: Failed to fetch HTTPS URL"
+            if len(res) > 4000:
+                return slice(res, 0, 4000)
+            return res
+
         let request = "GET " + path + " HTTP/1.0\r\nHost: " + host + "\r\nConnection: close\r\n\r\n"
         import tcp
         let conn = tcp.connect(host, port)
@@ -274,4 +295,4 @@ proc web_fetch_execute(args):
     return "Error: 'url' argument required"
 
 let web_params = "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"URL to fetch\"}},\"required\":[\"url\"]}"
-register_tool("web_fetch", "Fetch a URL and return the content. Supports HTTP only.", web_params, web_fetch_execute)
+register_tool("web_fetch", "Fetch a URL and return the content. Supports HTTP and HTTPS.", web_params, web_fetch_execute)

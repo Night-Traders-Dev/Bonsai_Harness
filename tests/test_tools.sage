@@ -201,16 +201,16 @@ proc test_web_fetch_ssrf_blocked():
     let r = tools.execute_tool("web_fetch", {"url": "http://localhost:11434"})
     return expect_contains(r, "cannot fetch from private or loopback")
 
-proc test_web_fetch_https_blocked():
-    let r = tools.execute_tool("web_fetch", {"url": "https://example.com"})
-    return expect_contains(r, "HTTPS is not supported")
+proc test_web_fetch_https_ssrf_blocked():
+    let r = tools.execute_tool("web_fetch", {"url": "https://localhost:11434"})
+    return expect_contains(r, "cannot fetch from private or loopback")
 
 proc test_web_fetch_no_url():
     let r = tools.execute_tool("web_fetch", {})
     return expect_eq(r, "Error: 'url' argument required")
 
 run_test("SSRF blocks localhost", test_web_fetch_ssrf_blocked)
-run_test("HTTPS rejected (no TLS)", test_web_fetch_https_blocked)
+run_test("HTTPS SSRF blocks localhost", test_web_fetch_https_ssrf_blocked)
 run_test("missing url returns error", test_web_fetch_no_url)
 
 print "--- unknown tool ---"

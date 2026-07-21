@@ -25,22 +25,20 @@ eight bright variants (`BRIGHT_RED` … `BRIGHT_CYAN`), plus `GRAY`.
 
 ## The "thinking" indicator
 
-While the agent waits for the model's first token, a static `"  thinking..."`
-message is shown. It is cleared by a carriage-return + erase-line sequence when
-the first token arrives.
+While the agent waits for the model's first token, a background thread (`thread.spawn(_spinner_loop)`) animates a live Cyan Braille spinner (`⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏`) alongside `"thinking..."`. It is stopped and cleared cleanly when the first token arrives or the turn ends.
 
 ### State
 ```sage
-var _thinking = false    # is the assistant "thinking" right now?
+var _thinking = false         # is the assistant "thinking" right now?
+var _spinner_running = false  # is the braille spinner thread active?
+var _in_think_block = false   # is the token stream inside a <think> reasoning block?
 ```
 
 ### `print_assistant_header()`
-Sets `_thinking = true` and prints `"  thinking..."`.
+Sets `_thinking = true`, `_spinner_running = true`, and spawns `_spinner_thread = thread.spawn(_spinner_loop)`.
 
-### `print_token(tok)` (first-token path)
-When `_thinking` is true, prints `\r\x1b[K` (carriage-return + clear line) to
-erase the thinking indicator, then prints the token in green. `_thinking` is
-set to false so subsequent tokens are just printed green.
+### `print_token(tok)` (first-token & reasoning path)
+Stops the spinner thread via `stop_spinner()`. Parses `<think>` and `</think>` tags to format reasoning output in dimmed gray under a `💭 Reasoning:` header before switching to green output for the final answer.
 
 ## Output primitives
 

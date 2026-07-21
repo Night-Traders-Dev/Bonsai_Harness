@@ -20,14 +20,27 @@ proc extract_json_from_text(text):
         return ""
     var depth = 0
     var end_pos = -1
+    var in_string = false
+    var escaped = false
     for i in range(start, len(text)):
         let ch = slice(text, i, i + 1)
-        if ch == "{":
-            depth = depth + 1
-        if ch == "}":
-            depth = depth - 1
-        if depth == 0 and end_pos < 0:
-            end_pos = i + 1
+        if in_string:
+            if escaped:
+                escaped = false
+            elif ch == "\\":
+                escaped = true
+            elif ch == "\"":
+                in_string = false
+        else:
+            if ch == "\"":
+                in_string = true
+            elif ch == "{":
+                depth = depth + 1
+            elif ch == "}":
+                depth = depth - 1
+                if depth == 0:
+                    end_pos = i + 1
+                    break
     if end_pos > start:
         return slice(text, start, end_pos)
     return ""

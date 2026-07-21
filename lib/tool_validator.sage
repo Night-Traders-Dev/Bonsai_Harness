@@ -71,7 +71,7 @@ proc validate_tool_call(tool_call):
             result["error"] = "bash tool requires 'command' argument"
             return result
         let cmd = args["command"]
-        if contains(cmd, "rm -rf /") or contains(cmd, "mkfs") or contains(cmd, "dd if="):
+        if contains(cmd, "rm -rf /") or contains(cmd, "rm -rf ~") or contains(cmd, "mkfs") or contains(cmd, "dd if=") or contains(cmd, ":(){ :|:& };:") or contains(cmd, "chmod -R 777 /"):
             result["error"] = "Command rejected by security policy"
             return result
 
@@ -98,8 +98,8 @@ proc validate_tool_call(tool_call):
             result["error"] = "web_fetch tool requires 'url' argument"
             return result
         let url = args["url"]
-        if not startswith(url, "http://"):
-            result["error"] = "Only http:// URLs are supported"
+        if not startswith(url, "http://") and not startswith(url, "https://"):
+            result["error"] = "Only http:// and https:// URLs are supported"
             return result
 
     result["valid"] = true
