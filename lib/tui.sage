@@ -241,43 +241,113 @@ proc show_help():
 
 proc get_input():
     print_raw(BOLD + "> " + RESET)
-    let line = input()
+    var buf = ""
+    var pos = 0
+    var hist_idx = len(input_history)
 
-    if line == nil or line == "\x04":
-        eof_count = eof_count + 1
-        if eof_count == 1:
-            print_raw(DIM + " (Press Ctrl+D again to exit & unload RAM)\n" + RESET)
-            return ""
+    while true:
+        let c = sys.getch()
+        
+        if c == "\x04" or c == "": 
+            eof_count = eof_count + 1
+            if eof_count == 1:
+                print_raw(DIM + " (Press Ctrl+D again to exit & unload RAM)\n" + RESET)
+                return ""
+            eof_count = 0
+            return ":quit-unload"
+            
         eof_count = 0
-        return ":quit-unload"
 
-    eof_count = 0
+        if c == "\x03":
+            print_raw(YELLOW + "^C\n" + RESET)
+            return ""
+            
+        if c == "\x1b":
+            let c2 = sys.getch()
+            if c2 == "[":
+                let c3 = sys.getch()
+                if c3 == "A": # UP arrow
+                    if len(input_history) > 0 and hist_idx > 0:
+                        while pos > 0:
+                            print_raw("\b \b")
+                            pos = pos - 1
+                        hist_idx = hist_idx - 1
+                        buf = input_history[hist_idx]
+                        pos = len(buf)
+                        print_raw(buf)
+                elif c3 == "B": # DOWN arrow
+                    if hist_idx < len(input_history) - 1:
+                        while pos > 0:
+                            print_raw("\b \b")
+                            pos = pos - 1
+                        hist_idx = hist_idx + 1
+                        buf = input_history[hist_idx]
+                        pos = len(buf)
+                        print_raw(buf)
+                    elif hist_idx == len(input_history) - 1:
+                        while pos > 0:
+                            print_raw("\b \b")
+                            pos = pos - 1
+                        hist_idx = len(input_history)
+                        buf = ""
+                elif c3 == "C": # RIGHT arrow (accept autocomplete)
+                    let match = find_suggestion(buf)
+                    if match != "":
+                        let rem = slice(match, len(buf), len(match))
+                        print_raw(rem)
+                        buf = match
+                        pos = len(buf)
+                elif c3 == "D": # LEFT arrow
+                    pass # ignore for now
+                continue
+            else:
+                print_raw(YELLOW + "^C\n" + RESET)
+                return ""
 
-    if contains(line, "\x03") or contains(line, "\x1b"):
-        print_raw(YELLOW + "^C\n" + RESET)
-        return ""
+        if c == "\n" or c == "\r":
+            print_nl()
+            let trimmed = strip(buf)
+            if trimmed == ":clear" or trimmed == ":c" or trimmed == ":cl":
+                clear_screen()
+                show_header()
+                return ""
+            add_to_input_history(trimmed)
+            return buf
 
-    if contains(line, "\x0c") or strip(line) == ":clear" or strip(line) == ":c" or strip(line) == ":cl":
-        clear_screen()
-        show_header()
-        return ""
-
-    if contains(line, "\t"):
-        let parts = split(line, "\t")
-        let prefix = parts[0]
-        let match = find_suggestion(prefix)
+        if c == "\t":
+            let match = find_suggestion(buf)
+            if match != "":
+                let rem = slice(match, len(buf), len(match))
+                print_raw(rem)
+                buf = match
+                pos = len(buf)
+            continue
+            
+        if c == "\x7f" or c == "\b":
+            if pos > 0:
+                pos = pos - 1
+                buf = slice(buf, 0, pos)
+                print_raw("\b \b")
+                # Clear remainder of the ghost suggestion
+                print_raw("\x1b[K")
+            continue
+            
+        if c == "\x0c":
+            clear_screen()
+            show_header()
+            print_raw(BOLD + "> " + RESET + buf)
+            continue
+            
+        buf = buf + c
+        pos = pos + 1
+        print_raw(c)
+        
+        let match = find_suggestion(buf)
         if match != "":
-            print_raw(GRAY + " → " + match + RESET + "\n")
-            add_to_input_history(match)
-            return match
-        return prefix
+            let rem = slice(match, len(buf), len(match))
+            print_raw(DIM + rem + RESET)
+            for i in range(len(rem)):
+                print_raw("\b")
+        else:
+            print_raw("\x1b[K")
 
-    let trimmed = strip(line)
-
-    if startswith(trimmed, ":clear"):
-        clear_screen()
-        show_header()
-        return ""
-
-    add_to_input_history(trimmed)
-    return line

@@ -336,11 +336,11 @@ proc query_model(prompt):
 # Returns {"correct": bool, "output": string}.
 proc score_compiler_task(task):
     let fn = task["compiler_fn"]
-    let input = task["input"]
+    let text_input = task["input"]
     let expected = task["expected"]
 
     if fn == "extract_json":
-        let result = compiler.extract_json_from_text(input)
+        let result = compiler.extract_json_from_text(text_input)
         if result == "":
             let ok = expected == ""
             return {"correct": ok, "output": result}
@@ -357,13 +357,13 @@ proc score_compiler_task(task):
         return {"correct": ok, "output": name}
 
     if fn == "extract_intent":
-        let result = compiler.extract_intent_from_bonsai(input)
+        let result = compiler.extract_intent_from_bonsai(text_input)
         let ok = strip(result) == strip(expected)
         return {"correct": ok, "output": slice(result, 0, 200)}
 
     if fn == "check_prompt_contains":
         let tools_list = tools.get_tool_list()
-        let prompt = compiler.build_compiler_prompt(input, tools_list)
+        let prompt = compiler.build_compiler_prompt(text_input, tools_list)
         let ok = contains(prompt, expected)
         return {"correct": ok, "output": slice(prompt, 0, 200)}
 
@@ -374,7 +374,7 @@ proc score_compiler_task(task):
         let call = {}
         call["name"] = ""
         call["arguments_str"] = "{}"
-        let parsed_call = json.cJSON_Parse(input)
+        let parsed_call = json.cJSON_Parse(text_input)
         if parsed_call != nil:
             let name_n = json.cJSON_GetObjectItem(parsed_call, "name")
             if name_n != nil:

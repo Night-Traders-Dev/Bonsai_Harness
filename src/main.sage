@@ -5,6 +5,7 @@ import lib.skills as skills
 import lib.ollama as ollama
 import lib.model_provider as provider
 import lib.model_config as cfg
+import bench.run_bench as bench_runner
 import thread
 import sys
 
@@ -14,6 +15,24 @@ var history = agent.init_history_with_skills(skills.get_skills_content())
 var running = true
 
 provider.use_primary()
+
+proc on_token_sync(tok):
+    tui.print_token(tok)
+
+proc on_tool_call_sync(name, tool_args):
+    tui.print_assistant_footer()
+    if name == "result":
+        tui.print_tool_result(tool_args)
+    elif name == "error":
+        tui.print_tool_call("COMPILER ERROR", tool_args)
+    else:
+        tui.print_tool_call(name, tool_args)
+    tui.print_assistant_header()
+
+proc on_final_sync(answer):
+    tui.print_assistant_footer()
+    if answer != nil and strip(answer) != "":
+        print(answer)
 
 proc process_input(line):
     let trimmed = strip(line)
@@ -54,7 +73,6 @@ proc process_input(line):
         return true
 
     if trimmed == ":bench":
-        import bench.run_bench as bench_runner
         bench_runner.main()
         return true
 
@@ -64,55 +82,7 @@ proc process_input(line):
     tui.print_user_msg(trimmed)
     tui.print_assistant_header()
 
-    var event_queue = []
-    var agent_done = false
-
-    proc on_token_bg(tok):
-        push(event_queue, {"type": "token", "val": tok})
-
-    proc on_tool_call_bg(name, args):
-        push(event_queue, {"type": "tool_call", "name": name, "args": args})
-
-    proc on_final_bg(answer):
-        push(event_queue, {"type": "final", "val": answer})
-
-    proc bg_worker():
-        agent.run_agent(trimmed, history, on_token_bg, on_tool_call_bg, on_final_bg)
-        agent_done = true
-
-    let bg_thread = thread.spawn(bg_worker)
-
-    while not agent_done or len(event_queue) > 0:
-        if len(event_queue) > 0:
-            let evt = event_queue[0]
-            let next_q = []
-            for i in range(1, len(event_queue)):
-                push(next_q, event_queue[i])
-            event_queue = next_q
-
-            let etype = evt["type"]
-            if etype == "token":
-                tui.print_token(evt["val"])
-            elif etype == "tool_call":
-                tui.print_assistant_footer()
-                let tc_name = evt["name"]
-                let tc_args = evt["args"]
-                if tc_name == "result":
-                    tui.print_tool_result(tc_args)
-                elif tc_name == "error":
-                    tui.print_tool_call("COMPILER ERROR", tc_args)
-                else:
-                    tui.print_tool_call(tc_name, tc_args)
-            elif etype == "final":
-                tui.print_assistant_footer()
-                let ans = evt["val"]
-                if ans != nil and strip(ans) != "":
-                    print(ans)
-        else:
-            tui.tick_spinner()
-            thread.sleep(0.04)
-
-    thread.join(bg_thread)
+    agent.run_agent(trimmed, history, on_token_sync, on_tool_call_sync, on_final_sync)
     return true
 
 tui.print_banner()

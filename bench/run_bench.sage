@@ -65,13 +65,14 @@ proc run_category(cat):
 # If BENCH_CATEGORY is set, run only that category (used by `sagemake bench`
 # to isolate each category in its own process so memory is freed between them).
 # Otherwise run the whole suite in one process.
-let only = sys.getenv("BENCH_CATEGORY")
-if only != nil and only != "":
-    run_category(only)
-else:
-    print ""
-    print CYAN + "Bonsai Harness Benchmark Suite" + RESET
-    print ""
-    for cat in bench.get_categories():
-        run_category(cat)
+proc main():
+    let only = sys.getenv("BENCH_CATEGORY")
+    if only != nil and only != "":
+        run_category(only)
+    else:
         print ""
+        print CYAN + "Bonsai Harness Benchmark Suite" + RESET
+        print ""
+        for cat in bench.get_categories():
+            run_category(cat)
+            print ""

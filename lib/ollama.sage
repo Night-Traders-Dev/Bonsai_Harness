@@ -295,6 +295,9 @@ proc send_and_stream(messages, tools, on_token, on_done):
     let body_str = build_request(messages, tools, true)
 
     let conn = tcp.connect(current_host, current_port)
+    if conn < 0:
+        return "{\"error\":\"Connection refused or host unreachable\"}"
+
     let req = "POST /api/chat HTTP/1.1\r\n"
     req = req + "Host: " + current_host + ":" + str(current_port) + "\r\n"
     req = req + "Content-Type: application/json\r\n"
@@ -454,7 +457,7 @@ proc unload_model():
     tcp.send(conn, req)
     tcp.close(conn)
 
-proc chat(messages, tools, on_token, on_done):
+proc ollama_chat(messages, tools, on_token, on_done):
     let body = send_and_stream(messages, tools, on_token, on_done)
     return parse_response_body(body)
 
@@ -465,7 +468,7 @@ proc _chat_simple_token_collector(tok):
 
 proc chat_simple(messages, tools):
     _chat_simple_content = ""
-    let result = chat(messages, tools, _chat_simple_token_collector, nil)
+    let result = ollama_chat(messages, tools, _chat_simple_token_collector, nil)
     result["full_content"] = _chat_simple_content
     return result
 
@@ -592,7 +595,7 @@ proc send_once(messages, tools):
     tcp.close(conn)
     return body
 
-proc ask(messages, tools):
+proc ollama_ask(messages, tools):
     let body = send_once(messages, tools)
     if body == "":
         let err = {}

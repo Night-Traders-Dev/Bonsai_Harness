@@ -51,16 +51,16 @@ proc get_tool_list():
         push(result, entry)
     return result
 
-proc execute_tool(name, args_json):
+proc execute_tool(name, tool_args):
     if dict_has(tool_registry, name):
         let tool = tool_registry[name]
-        return tool["execute"](args_json)
+        return tool["execute"](tool_args)
     else:
         return "Error: Unknown tool '" + name + "'"
 
-proc bash_execute(args):
-    if type(args) == "dict" and dict_has(args, "command"):
-        let cmd = args["command"]
+proc bash_execute(tool_args):
+    if type(tool_args) == "dict" and dict_has(tool_args, "command"):
+        let cmd = tool_args["command"]
         let result = sys.shell_exec(cmd)
         if result == nil:
             return "Command returned no output"
@@ -70,9 +70,9 @@ proc bash_execute(args):
 let bash_params = "{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\",\"description\":\"The bash command to execute\"}},\"required\":[\"command\"]}"
 register_tool("bash", "Execute a bash command on the system. Use for file operations, running scripts, and system tasks.", bash_params, bash_execute)
 
-proc read_file_execute(args):
-    if type(args) == "dict" and dict_has(args, "path"):
-        let valid = _validate_path(args["path"])
+proc read_file_execute(tool_args):
+    if type(tool_args) == "dict" and dict_has(tool_args, "path"):
+        let valid = _validate_path(tool_args["path"])
         if startswith(valid, "Error:"):
             return valid
         if io.exists(valid):
@@ -84,12 +84,12 @@ proc read_file_execute(args):
 let read_params = "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Path to the file to read\"}},\"required\":[\"path\"]}"
 register_tool("read_file", "Read the contents of a file from the filesystem.", read_params, read_file_execute)
 
-proc write_file_execute(args):
-    if type(args) == "dict" and dict_has(args, "path") and dict_has(args, "content"):
-        let valid = _validate_path(args["path"])
+proc write_file_execute(tool_args):
+    if type(tool_args) == "dict" and dict_has(tool_args, "path") and dict_has(tool_args, "content"):
+        let valid = _validate_path(tool_args["path"])
         if startswith(valid, "Error:"):
             return valid
-        let content = args["content"]
+        let content = tool_args["content"]
         io.writefile(valid, content)
         return "File written: " + valid
     return "Error: 'path' and 'content' arguments required"
@@ -97,28 +97,29 @@ proc write_file_execute(args):
 let write_params = "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Path to write the file to\"},\"content\":{\"type\":\"string\",\"description\":\"Content to write to the file\"}},\"required\":[\"path\",\"content\"]}"
 register_tool("write_file", "Write content to a file on the filesystem.", write_params, write_file_execute)
 
-proc grep_execute(args):
-    if type(args) == "dict" and dict_has(args, "pattern"):
-        let pattern = args["pattern"]
+proc _grep_walk(dir, collect_files):
+    let entries = io.listdir(dir)
+    for e in entries:
+        let full = dir + "/" + e
+        if io.isdir(full):
+            if not startswith(e, "."):
+                _grep_walk(full, collect_files)
+        elif io.exists(full) and not io.isdir(full):
+            push(collect_files, full)
+
+proc grep_execute(tool_args):
+    if type(tool_args) == "dict" and dict_has(tool_args, "pattern"):
+        let pattern = tool_args["pattern"]
         var search_path = "."
-        if dict_has(args, "path"):
-            let valid = _validate_path(args["path"])
+        if dict_has(tool_args, "path"):
+            let valid = _validate_path(tool_args["path"])
             if startswith(valid, "Error:"):
                 return valid
             search_path = valid
         var results = []
         var collect_files = []
-        proc walk(dir):
-            let entries = io.listdir(dir)
-            for e in entries:
-                let full = dir + "/" + e
-                if io.isdir(full):
-                    if not startswith(e, "."):
-                        walk(full)
-                elif io.exists(full) and not io.isdir(full):
-                    push(collect_files, full)
         if io.isdir(search_path):
-            walk(search_path)
+            _grep_walk(search_path, collect_files)
         elif io.exists(search_path) and not io.isdir(search_path):
             push(collect_files, search_path)
         for f in collect_files:
@@ -142,37 +143,37 @@ proc grep_execute(args):
 let grep_params = "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\",\"description\":\"Search pattern (regex)\"},\"path\":{\"type\":\"string\",\"description\":\"Directory or file to search in (default: current directory)\"}},\"required\":[\"pattern\"]}"
 register_tool("grep", "Search for text patterns in files using regex. Returns matching lines with line numbers.", grep_params, grep_execute)
 
-proc glob_execute(args):
-    if type(args) == "dict" and dict_has(args, "pattern"):
-        let pattern = args["pattern"]
+proc _glob_match(name, pat):
+    let star = indexof(pat, "*")
+    if star < 0:
+        return name == pat
+    if star == 0:
+        let suffix = slice(pat, 1, len(pat))
+        if suffix == "":
+            return true
+        return endswith(name, suffix)
+    let prefix = slice(pat, 0, star)
+    return startswith(name, prefix)
+
+proc _glob_walk(dir, pat, results):
+    let entries = io.listdir(dir)
+    for e in entries:
+        if startswith(e, "."):
+            continue
+        let full = dir + "/" + e
+        if _glob_match(e, pat):
+            push(results, full)
+        if io.isdir(full):
+            _glob_walk(full, pat, results)
+
+proc glob_execute(tool_args):
+    if type(tool_args) == "dict" and dict_has(tool_args, "pattern"):
+        let pattern = tool_args["pattern"]
         if contains(pattern, ".."):
             return "Error: path traversal not allowed ('..' in pattern)"
         var results = []
 
-        proc match_glob(name, pat):
-            let star = indexof(pat, "*")
-            if star < 0:
-                return name == pat
-            if star == 0:
-                let suffix = slice(pat, 1, len(pat))
-                if suffix == "":
-                    return true
-                return endswith(name, suffix)
-            let prefix = slice(pat, 0, star)
-            return startswith(name, prefix)
-
-        proc walk(dir, pat):
-            let entries = io.listdir(dir)
-            for e in entries:
-                if startswith(e, "."):
-                    continue
-                let full = dir + "/" + e
-                if match_glob(e, pat):
-                    push(results, full)
-                if io.isdir(full):
-                    walk(full, pat)
-
-        walk(".", pattern)
+        _glob_walk(".", pattern, results)
         if len(results) > 0:
             return join(results, "\n")
         return "No matches found"
@@ -181,10 +182,10 @@ proc glob_execute(args):
 let glob_params = "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\",\"description\":\"Glob pattern to match files (e.g., '*.sage')\"}},\"required\":[\"pattern\"]}"
 register_tool("glob", "Find files matching a glob pattern.", glob_params, glob_execute)
 
-proc list_dir_execute(args):
+proc list_dir_execute(tool_args):
     var path = "."
-    if type(args) == "dict" and dict_has(args, "path"):
-        let valid = _validate_path(args["path"])
+    if type(tool_args) == "dict" and dict_has(tool_args, "path"):
+        let valid = _validate_path(tool_args["path"])
         if startswith(valid, "Error:"):
             return valid
         path = valid
@@ -239,9 +240,9 @@ proc _is_blocked_host(host):
                 return true
     return false
 
-proc web_fetch_execute(args):
-    if type(args) == "dict" and dict_has(args, "url"):
-        let url = args["url"]
+proc web_fetch_execute(tool_args):
+    if type(tool_args) == "dict" and dict_has(tool_args, "url"):
+        let url = tool_args["url"]
         let host = url
         let path = "/"
         var is_https = false

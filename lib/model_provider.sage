@@ -21,10 +21,10 @@ proc get_current_model():
     return ollama.get_model()
 
 proc chat(messages, tools, on_token, on_done):
-    return ollama.chat(messages, tools, on_token, on_done)
+    return ollama.ollama_chat(messages, tools, on_token, on_done)
 
 proc ask(messages, tools):
-    return ollama.ask(messages, tools)
+    return ollama.ollama_ask(messages, tools)
 
 proc unload_current():
     ollama.unload_model()
