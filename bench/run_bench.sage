@@ -76,3 +76,5 @@ proc main():
         for cat in bench.get_categories():
             run_category(cat)
             print ""
+
+main()
